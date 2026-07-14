@@ -65,13 +65,13 @@
             storageBucket: "p2f---from-preform-to-fiber.firebasestorage.app",
             messagingSenderId: "358737766120",
             appId: "1:358737766120:web:b08673220e1e5c4f720b5d"
-          };
+        };
 
         // Check if user has replaced placeholder credentials
         const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
 
         // ==========================================
-        // 9 התחנות המדויקות שלך לפי הסדר עם צבעים ייחודיים
+        // 10 התחנות המדויקות שלך לפי הסדר עם צבעים ייחודיים
         // ==========================================
         const STATIONS = [
             { id: "future_cops", name: "גלמים עתידיים", color: "bg-gray-500", border: "border-gray-500", text: "text-gray-700", lightBg: "bg-gray-50" },
@@ -88,13 +88,13 @@
 
         // Default offline state for preview and testing before Firebase setup
         const INITIAL_OFFLINE_FIBERS = {
-            "demo-1": { id: "demo-1", name: "סיב אופטי חד-מצב #101", stationId: "future_cops", comments: "לבדיקת איכות", timestamp: Date.now() },
-            "demo-2": { id: "demo-2", name: "גולם סיליקה MCVD #44", stationId: "mcvd", comments: "להריץ בלילה", timestamp: Date.now() - 3600000 }
+            "demo-1": { id: "demo-1", name: "סיב אופטי חד-מצב #101", stationId: "future_cops", comments: "לבדיקת איכות", timestamp: Date.now(), order: 1 },
+            "demo-2": { id: "demo-2", name: "גולם סיליקה MCVD #44", stationId: "mcvd", comments: "להריץ בלילה", timestamp: Date.now() - 3600000, order: 2 }
         };
 
         const INITIAL_OFFLINE_STATION_NOTES = {
             "future_cops": "נא לרשום תאריך הגעה לכל גלם חדש",
-            };
+        };
 
         function App() {
             const [fibers, setFibers] = useState(INITIAL_OFFLINE_FIBERS);
@@ -199,7 +199,8 @@
                         name: newFiberName.trim(),
                         stationId: newFiberStation,
                         comments: "",
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        order: Date.now() // default fallback for priority sorting
                     }
                 };
 
@@ -209,13 +210,19 @@
 
             const handleMoveFiber = (fiberId, targetStationId) => {
                 if (!fibers[fiberId]) return;
-                const updatedFibers = {
-                    ...fibers,
-                    [fiberId]: {
-                        ...fibers[fiberId],
-                        stationId: targetStationId
-                    }
+                
+                // When moving via dropdown, put it at the end of the priority order of target station
+                const targetStationFibers = Object.values(fibers)
+                    .filter(f => f.stationId === targetStationId && f.id !== fiberId)
+                    .sort((a,b) => (a.order || 0) - (b.order || 0));
+
+                const updatedFibers = { ...fibers };
+                updatedFibers[fiberId] = {
+                    ...fibers[fiberId],
+                    stationId: targetStationId,
+                    order: targetStationFibers.length > 0 ? (targetStationFibers[targetStationFibers.length - 1].order || 0) + 1 : 0
                 };
+
                 updateDatabase(updatedFibers);
                 setActiveMenuFiberId(null); // Close phone popover
             };
@@ -235,6 +242,38 @@
             const handleDeleteFiber = (fiberId) => {
                 const updatedFibers = { ...fibers };
                 delete updatedFibers[fiberId];
+                updateDatabase(updatedFibers);
+            };
+
+            // Order movement handlers for quick click priority shifting (especially for mobile/tablet)
+            const handleMovePriority = (fiberId, direction) => {
+                const fiber = fibers[fiberId];
+                if (!fiber) return;
+
+                const stationFibers = Object.values(fibers)
+                    .filter(f => f.stationId === fiber.stationId)
+                    .sort((a,b) => (a.order || 0) - (b.order || 0));
+
+                const index = stationFibers.findIndex(f => f.id === fiberId);
+                if (index === -1) return;
+
+                let targetIndex = index + direction;
+                if (targetIndex < 0 || targetIndex >= stationFibers.length) return;
+
+                // Swap indices on the list
+                const temp = stationFibers[index];
+                stationFibers[index] = stationFibers[targetIndex];
+                stationFibers[targetIndex] = temp;
+
+                // Map updated order back to global fiber records
+                const updatedFibers = { ...fibers };
+                stationFibers.forEach((f, idx) => {
+                    updatedFibers[f.id] = {
+                        ...updatedFibers[f.id],
+                        order: idx
+                    };
+                });
+
                 updateDatabase(updatedFibers);
             };
 
@@ -261,12 +300,68 @@
                 e.preventDefault();
             };
 
-            const handleDrop = (e, stationId) => {
+            const handleDropOnStation = (e, stationId) => {
                 e.preventDefault();
                 const fiberId = e.dataTransfer.getData("text/plain") || draggedFiberId;
-                if (fiberId) {
-                    handleMoveFiber(fiberId, stationId);
+                if (!fiberId) return;
+
+                const draggedFiber = fibers[fiberId];
+                if (!draggedFiber) return;
+
+                // Sort existing fibers in target station excluding the dragged one
+                const targetStationFibers = Object.values(fibers)
+                    .filter(f => f.stationId === stationId && f.id !== fiberId)
+                    .sort((a,b) => (a.order || 0) - (b.order || 0));
+
+                // Place dragged fiber at the end of the queue
+                targetStationFibers.push({ ...draggedFiber, stationId });
+
+                const updatedFibers = { ...fibers };
+                targetStationFibers.forEach((f, idx) => {
+                    updatedFibers[f.id] = {
+                        ...updatedFibers[f.id],
+                        stationId: stationId,
+                        order: idx
+                    };
+                });
+
+                updateDatabase(updatedFibers);
+                setDraggedFiberId(null);
+            };
+
+            const handleDropOnCard = (e, targetFiberId, stationId) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent column-level drop execution
+                const draggedId = e.dataTransfer.getData("text/plain") || draggedFiberId;
+                if (!draggedId || draggedId === targetFiberId) return;
+
+                const draggedFiber = fibers[draggedId];
+                if (!draggedFiber) return;
+
+                // Extract and sort target station list, skipping the dragged item
+                const targetStationFibers = Object.values(fibers)
+                    .filter(f => f.stationId === stationId && f.id !== draggedId)
+                    .sort((a,b) => (a.order || 0) - (b.order || 0));
+
+                // Find destination index slot in column list
+                const destIndex = targetStationFibers.findIndex(f => f.id === targetFiberId);
+                if (destIndex !== -1) {
+                    targetStationFibers.splice(destIndex, 0, { ...draggedFiber, stationId });
+                } else {
+                    targetStationFibers.push({ ...draggedFiber, stationId });
                 }
+
+                // Reassign indexed orders to establish new prioritized layout order
+                const updatedFibers = { ...fibers };
+                targetStationFibers.forEach((f, idx) => {
+                    updatedFibers[f.id] = {
+                        ...updatedFibers[f.id],
+                        stationId: stationId,
+                        order: idx
+                    };
+                });
+
+                updateDatabase(updatedFibers);
                 setDraggedFiberId(null);
             };
 
@@ -276,6 +371,9 @@
                     window.lucide.createIcons();
                 }
             }, [fibers, stationNotes, editingStationNotes, activeTab, isLive, activeMenuFiberId]);
+
+            // Calculate metric excluding fibers in station "M&O" (Maintenance & Orders)
+            const monitoredFibersCount = Object.values(fibers).filter(f => f.stationId !== "M&O").length;
 
             return (
                 <div class="h-full flex flex-col overflow-hidden">
@@ -296,7 +394,7 @@
                             </div>
                             <div>
                                 <h1 class="text-xl font-bold text-slate-800">P2F - from preform to fiber</h1>
-                                <p class="text-xs text-slate-500">תכנון, מעקב ועדכון התליכים באולם בזמן אמת</p>
+                                <p class="text-xs text-slate-500">תכנון, מעקב ועדכון התהליכים באולם בזמן אמת</p>
                             </div>
                         </div>
 
@@ -307,12 +405,12 @@
                                 <span class="font-medium">{isLive ? 'מחובר לפיירבייס' : 'מצב הדגמה'}</span>
                             </div>
                             <div class="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
-                                סה"כ במעקב: {Object.keys(fibers).length} סיבים
+                                סה"כ במעקב: {monitoredFibersCount} סיבים
                             </div>
                         </div>
                     </header>
 
-                    {}
+                    {/* Creation Form Bar */}
                     <div class="bg-slate-50 border-b border-slate-200 px-6 py-3 shrink-0">
                         <form onSubmit={handleAddFiber} class="flex flex-wrap items-center gap-3">
                             <span class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
@@ -344,7 +442,7 @@
                         </form>
                     </div>
 
-                    {}
+                    {/* View Switcher for Devices */}
                     <div class="md:hidden flex bg-white border-b border-slate-200 shrink-0">
                         <button 
                             onClick={() => setActiveTab("board")}
@@ -367,14 +465,17 @@
                             style={{ minWidth: '100%' }}
                         >
                             {STATIONS.map((station) => {
-                                const stationFibers = Object.values(fibers).filter(f => f.stationId === station.id);
+                                // Extract and sort station fibers dynamically using prioritize order field
+                                const stationFibers = Object.values(fibers)
+                                    .filter(f => f.stationId === station.id)
+                                    .sort((a,b) => (a.order || 0) - (b.order || 0));
                                 const isEditingThis = editingStationNotes === station.id;
 
                                 return (
                                     <div 
                                         key={station.id}
                                         onDragOver={handleDragOver}
-                                        onDrop={(e) => handleDrop(e, station.id)}
+                                        onDrop={(e) => handleDropOnStation(e, station.id)}
                                         class="w-[210px] shrink-0 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col h-fit overflow-hidden"
                                     >
                                         {/* Station Header Block */}
@@ -428,18 +529,20 @@
                                             )
                                         )}
 
-                                        {/* Fiber Cards Container list */}
+                                        {}
                                         <div class="p-3 space-y-3 bg-slate-50/50 h-full">
                                             {stationFibers.length === 0 ? (
                                                 <div class="min-h-[90px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-3 text-center">
                                                     <p class="text-[11px] text-slate-400">אין גלמים.<br/>גרור לכאן.</p>
                                                 </div>
                                             ) : (
-                                                stationFibers.map((fiber) => (
+                                                stationFibers.map((fiber, index) => (
                                                     <div 
                                                         key={fiber.id}
                                                         draggable
                                                         onDragStart={(e) => handleDragStart(e, fiber.id)}
+                                                        onDragOver={handleDragOver}
+                                                        onDrop={(e) => handleDropOnCard(e, fiber.id, station.id)}
                                                         class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm card-hover relative group cursor-grab active:cursor-grabbing"
                                                     >
                                                         {/* Header of fiber card */}
@@ -449,48 +552,73 @@
                                                                 <h4 class="font-bold text-xs text-slate-800 truncate">{fiber.name}</h4>
                                                             </div>
                                                             
-                                                            {/* Quick move action menu button */}
-                                                            <div class="relative shrink-0">
-                                                                <button 
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setActiveMenuFiberId(activeMenuFiberId === fiber.id ? null : fiber.id);
-                                                                    }}
-                                                                    class="p-1 text-slate-400 hover:text-slate-600 rounded bg-slate-100/50 hover:bg-slate-100"
-                                                                    title="העבר לתחנה"
-                                                                >
-                                                                    <i data-lucide="arrow-left-right" class="w-3 h-3"></i>
-                                                                </button>
-                                                                
-                                                                {/* Popover move selector menu */}
-                                                                {activeMenuFiberId === fiber.id && (
-                                                                    <div class="absolute z-30 left-0 top-7 bg-white border border-slate-200 rounded-lg shadow-xl py-1.5 w-40">
-                                                                        <div class="px-2.5 pb-1 text-[10px] font-bold text-slate-400 border-b border-slate-100">העברה מהירה:</div>
-                                                                        {STATIONS.map(st => (
-                                                                            <button 
-                                                                                key={st.id}
-                                                                                onClick={() => handleMoveFiber(fiber.id, st.id)}
-                                                                                disabled={st.id === fiber.stationId}
-                                                                                class={`w-full text-right px-2.5 py-1 text-xs hover:bg-slate-50 transition flex items-center justify-between ${st.id === fiber.stationId ? 'text-slate-300 font-normal' : 'text-slate-700 font-medium'}`}
-                                                                            >
-                                                                                <span>{st.name}</span>
-                                                                                {st.id === fiber.stationId && <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>}
-                                                                            </button>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
+                                                            {/* Quick move, ordering options */}
+                                                            <div class="flex items-center gap-1 shrink-0">
+                                                                {/* Micro Caret priority adjustment buttons */}
+                                                                <div class="flex flex-col">
+                                                                    <button 
+                                                                        type="button"
+                                                                        disabled={index === 0}
+                                                                        onClick={() => handleMovePriority(fiber.id, -1)}
+                                                                        class={`text-slate-400 hover:text-slate-700 transition ${index === 0 ? 'opacity-30' : ''}`}
+                                                                        title="העלה עדיפות"
+                                                                    >
+                                                                        <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+                                                                    </button>
+                                                                    <button 
+                                                                        type="button"
+                                                                        disabled={index === stationFibers.length - 1}
+                                                                        onClick={() => handleMovePriority(fiber.id, 1)}
+                                                                        class={`text-slate-400 hover:text-slate-700 transition ${index === stationFibers.length - 1 ? 'opacity-30' : ''}`}
+                                                                        title="הורד עדיפות"
+                                                                    >
+                                                                        <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                                                                    </button>
+                                                                </div>
+
+                                                                <div class="relative shrink-0">
+                                                                    <button 
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setActiveMenuFiberId(activeMenuFiberId === fiber.id ? null : fiber.id);
+                                                                        }}
+                                                                        class="p-1 text-slate-400 hover:text-slate-600 rounded bg-slate-100/50 hover:bg-slate-100"
+                                                                        title="העבר לתחנה"
+                                                                    >
+                                                                        <i data-lucide="arrow-left-right" class="w-3 h-3"></i>
+                                                                    </button>
+                                                                    
+                                                                    {/* Popover move selector menu */}
+                                                                    {activeMenuFiberId === fiber.id && (
+                                                                        <div class="absolute z-30 left-0 top-7 bg-white border border-slate-200 rounded-lg shadow-xl py-1.5 w-40">
+                                                                            <div class="px-2.5 pb-1 text-[10px] font-bold text-slate-400 border-b border-slate-100">העברה מהירה:</div>
+                                                                            {STATIONS.map(st => (
+                                                                                <button 
+                                                                                    key={st.id}
+                                                                                    onClick={() => handleMoveFiber(fiber.id, st.id)}
+                                                                                    disabled={st.id === fiber.stationId}
+                                                                                    class={`w-full text-right px-2.5 py-1 text-xs hover:bg-slate-50 transition flex items-center justify-between ${st.id === fiber.stationId ? 'text-slate-300 font-normal' : 'text-slate-700 font-medium'}`}
+                                                                                >
+                                                                                    <span>{st.name}</span>
+                                                                                    {st.id === fiber.stationId && <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
 
-                                                        {/* Individual Fiber Comments field */}
-                                                        <div class="mt-2 border-t border-slate-100 pt-1.5 flex items-center gap-1.5">
-                                                            <i data-lucide="message-square" class="w-3 h-3 text-slate-400 shrink-0"></i>
-                                                            <input 
-                                                                type="text"
-                                                                placeholder="הוסף הערה..."
+                                                        {}
+                                                        {/* Individual Fiber Comments field with multi-row textarea capabilities */}
+                                                        <div class="mt-2 border-t border-slate-100 pt-1.5 flex items-start gap-1.5">
+                                                            <i data-lucide="message-square" class="w-3 h-3 text-slate-400 shrink-0 mt-1"></i>
+                                                            <textarea 
+                                                                placeholder="הוסף הערה... (ניתן לרדת שורה)"
                                                                 value={fiber.comments || ""}
                                                                 onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
-                                                                class="w-full text-[11px] text-slate-600 bg-transparent focus:outline-none placeholder:text-slate-400"
+                                                                rows={2}
+                                                                class="w-full text-[11px] text-slate-600 bg-transparent border border-slate-100 focus:border-blue-300 focus:bg-white p-1 rounded-md focus:outline-none placeholder:text-slate-400 resize-none min-h-[44px]"
                                                             />
                                                         </div>
 
@@ -514,9 +642,12 @@
                         </div>
 
                         {}
+                        {/* Mobile Device Optimized Interface View */}
                         <div class={`h-full overflow-y-auto p-4 space-y-4 md:hidden ${activeTab === "board" ? "hidden" : "block"}`}>
                             {STATIONS.map((station) => {
-                                const stationFibers = Object.values(fibers).filter(f => f.stationId === station.id);
+                                const stationFibers = Object.values(fibers)
+                                    .filter(f => f.stationId === station.id)
+                                    .sort((a,b) => (a.order || 0) - (b.order || 0));
                                 return (
                                     <div key={station.id} class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                                         <div class={`${station.color} p-3 text-white flex items-center justify-between`}>
@@ -532,27 +663,47 @@
                                                 </div>
                                             )}
 
-                                            {stationFibers.map(fiber => (
+                                            {stationFibers.map((fiber, index) => (
                                                 <div key={fiber.id} class="bg-white border border-slate-200 p-3 rounded-lg shadow-sm">
                                                     <div class="flex items-center justify-between mb-2">
                                                         <h4 class="font-bold text-sm text-slate-800">{fiber.name}</h4>
-                                                        <select 
-                                                            value={fiber.stationId}
-                                                            onChange={(e) => handleMoveFiber(fiber.id, e.target.value)}
-                                                            class="text-xs bg-slate-100 border border-slate-300 rounded px-1.5 py-1 text-slate-700 font-semibold"
-                                                        >
-                                                            {STATIONS.map(st => (
-                                                                <option key={st.id} value={st.id}>שלח ל: {st.name}</option>
-                                                            ))}
-                                                        </select>
+                                                        
+                                                        {/* Priority adjustments and station move in phone mode */}
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="flex gap-1">
+                                                                <button 
+                                                                    disabled={index === 0}
+                                                                    onClick={() => handleMovePriority(fiber.id, -1)}
+                                                                    class={`p-1 bg-slate-100 border border-slate-200 rounded text-slate-600 ${index === 0 ? 'opacity-30' : ''}`}
+                                                                >
+                                                                    <i data-lucide="chevron-up" class="w-4 h-4"></i>
+                                                                </button>
+                                                                <button 
+                                                                    disabled={index === stationFibers.length - 1}
+                                                                    onClick={() => handleMovePriority(fiber.id, 1)}
+                                                                    class={`p-1 bg-slate-100 border border-slate-200 rounded text-slate-600 ${index === stationFibers.length - 1 ? 'opacity-30' : ''}`}
+                                                                >
+                                                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                                                </button>
+                                                            </div>
+                                                            <select 
+                                                                value={fiber.stationId}
+                                                                onChange={(e) => handleMoveFiber(fiber.id, e.target.value)}
+                                                                class="text-xs bg-slate-100 border border-slate-300 rounded px-1.5 py-1 text-slate-700 font-semibold"
+                                                            >
+                                                                {STATIONS.map(st => (
+                                                                    <option key={st.id} value={st.id}>שלח ל: {st.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
                                                     </div>
 
-                                                    <input 
-                                                        type="text"
-                                                        placeholder="הוסף הערה..."
+                                                    <textarea 
+                                                        placeholder="הוסף הערה... (ניתן לרדת שורה)"
                                                         value={fiber.comments || ""}
                                                         onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
-                                                        class="w-full text-xs bg-slate-50 border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                        rows={2}
+                                                        class="w-full text-xs bg-slate-50 border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white resize-none min-h-[44px]"
                                                     />
 
                                                     <div class="mt-2.5 flex justify-between items-center text-[10px] text-slate-400">
