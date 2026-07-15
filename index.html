@@ -461,7 +461,7 @@
                     {}
                     <main class="flex-1 overflow-y-auto relative bg-slate-50">
                         <div 
-                            class={`h-full overflow-y-auto p-6 flex flex-wrap content-start justify-center md:justify-start gap-4 ${activeTab === "list" ? "hidden md:flex" : "flex"}`}
+                            class={`h-full overflow-y-auto p-6 columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 ${activeTab === "list" ? "hidden md:block" : "block"}`}
                             style={{ minWidth: '100%' }}
                         >
                             {STATIONS.map((station) => {
@@ -476,7 +476,7 @@
                                         key={station.id}
                                         onDragOver={handleDragOver}
                                         onDrop={(e) => handleDropOnStation(e, station.id)}
-                                        class="w-[210px] shrink-0 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col h-fit overflow-hidden"
+                                        class="inline-block w-full break-inside-avoid bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col h-fit overflow-hidden mb-4"
                                     >
                                         {/* Station Header Block */}
                                         <div class={`${station.color} p-3 text-white flex items-center justify-between shrink-0 shadow-sm`}>
@@ -699,7 +699,7 @@
                                                     </div>
 
                                                     <textarea 
-                                                        placeholder="הוסף הערה... (ניתן לרדת שורה)"
+                                                        placeholder="הוסף הערה..."
                                                         value={fiber.comments || ""}
                                                         onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
                                                         rows={2}
