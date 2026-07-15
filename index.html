@@ -54,7 +54,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        /* STREAMING_CHUNK: Initializing database configuration and stations metadata */
         // ==========================================
         // !!! הגדרות FIREBASE !!!
         // ==========================================
@@ -96,13 +95,18 @@
                 timestamp: Date.now(), 
                 order: 1,
                 saveToHistory: true,
+                archived: false,
                 stationData: {
-                    future_cops: "התקבל חומר גלם ראשוני נקי.",
-                    mcvd: "בוצעה מתיחה מוצלחת ב-220 מעלות."
+                    future_cops: [
+                        { operator: "משה", timestamp: Date.now() - 7200000, text: "התקבל חומר גלם ראשוני נקי ותקין." }
+                    ],
+                    mcvd: [
+                        { operator: "יוסי", timestamp: Date.now() - 3600000, text: "בוצעה מתיחה מוצלחת ב-220 מעלות, קוטר אחיד." }
+                    ]
                 },
                 historyLog: [
-                    { stationId: "future_cops", timestamp: Date.now() - 7200000, note: "נוצר במערכת" },
-                    { stationId: "mcvd", timestamp: Date.now() - 3600000, note: "הועבר ידנית" }
+                    { stationId: "future_cops", timestamp: Date.now() - 7200000, note: "נוצר והוצב בלוח" },
+                    { stationId: "mcvd", timestamp: Date.now() - 3600000, note: "הועבר לתחנת MCVD" }
                 ]
             },
             "demo-2": { 
@@ -113,9 +117,10 @@
                 timestamp: Date.now() - 3600000, 
                 order: 2,
                 saveToHistory: false,
+                archived: false,
                 stationData: {},
                 historyLog: [
-                    { stationId: "future_cops", timestamp: Date.now() - 3600000, note: "נוצר במערכת" }
+                    { stationId: "future_cops", timestamp: Date.now() - 3600000, note: "נוצר והוצב בלוח" }
                 ]
             }
         };
@@ -141,8 +146,17 @@
             const [selectedFiberId, setSelectedFiberId] = useState(null);
             const [modalActiveStation, setModalActiveStation] = useState("future_cops");
             const [searchHistoryQuery, setSearchHistoryQuery] = useState("");
+            
+            // Operator custom inputs inside modal
+            const [tempOperatorName, setTempOperatorName] = useState("");
+            const [tempModalNoteText, setTempModalNoteText] = useState("");
 
-            /* STREAMING_CHUNK: Loading database listeners and synchronization */
+            useEffect(() => {
+                // Pre-fill operator name from storage for ease of use
+                const savedOperator = localStorage.getItem('last_operator');
+                if (savedOperator) setTempOperatorName(savedOperator);
+            }, [selectedFiberId]);
+
             useEffect(() => {
                 if (!isFirebaseConfigured) {
                     console.warn("Firebase config is missing. Operating in local demo mode.");
@@ -212,7 +226,6 @@
                 }
             }, [isLive]);
 
-            /* STREAMING_CHUNK: Managing fiber creations and location transitions */
             const handleAddFiber = (e) => {
                 e.preventDefault();
                 if (!newFiberName.trim()) return;
@@ -282,20 +295,40 @@
                 updateDatabase(updatedFibers);
             };
 
-            const handleUpdateStationData = (fiberId, stationId, dataText) => {
-                if (!fibers[fiberId]) return;
+            const handleAddStationNoteEntry = (fiberId, stationId) => {
+                if (!tempModalNoteText.trim()) return;
                 const fiber = fibers[fiberId];
+                if (!fiber) return;
+
+                // Load existing logs (handling legacy strings gracefully)
+                let existingNotes = [];
+                const rawData = fiber.stationData ? fiber.stationData[stationId] : null;
+                if (Array.isArray(rawData)) {
+                    existingNotes = rawData;
+                } else if (typeof rawData === 'string' && rawData.trim() !== '') {
+                    existingNotes = [{ operator: "הערה כללית", timestamp: fiber.timestamp, text: rawData }];
+                }
+
+                const newEntry = {
+                    operator: tempOperatorName.trim() || "מפעיל כללי",
+                    timestamp: Date.now(),
+                    text: tempModalNoteText.trim()
+                };
+
                 const updatedFibers = {
                     ...fibers,
                     [fiberId]: {
                         ...fiber,
                         stationData: {
                             ...(fiber.stationData || {}),
-                            [stationId]: dataText
+                            [stationId]: [...existingNotes, newEntry]
                         }
                     }
                 };
+
                 updateDatabase(updatedFibers);
+                setTempModalNoteText("");
+                localStorage.setItem('last_operator', tempOperatorName.trim());
             };
 
             const handleToggleSaveToHistory = (fiberId) => {
@@ -310,21 +343,18 @@
                 updateDatabase(updatedFibers);
             };
 
-            /* STREAMING_CHUNK: Processing deletion vs archival targets */
             const handleDeleteOrArchiveFiber = (fiberId) => {
                 const fiber = fibers[fiberId];
                 if (!fiber) return;
 
                 const updatedFibers = { ...fibers };
                 if (fiber.saveToHistory) {
-                    // Archive to history logs
                     updatedFibers[fiberId] = {
                         ...fiber,
                         archived: true,
                         archiveTimestamp: Date.now()
                     };
                 } else {
-                    // Delete permanently
                     delete updatedFibers[fiberId];
                 }
                 updateDatabase(updatedFibers);
@@ -401,7 +431,6 @@
                 const draggedFiber = fibers[draggedId];
                 if (!draggedFiber) return;
 
-                // Sort target station items
                 const targetStationFibers = Object.values(fibers)
                     .filter(f => f.stationId === stationId && f.id !== draggedId && !f.archived)
                     .sort((a,b) => (a.order || 0) - (b.order || 0));
@@ -413,7 +442,6 @@
                     targetStationFibers.push({ ...draggedFiber, stationId });
                 }
 
-                // Re-order mapping
                 const updatedFibers = { ...fibers };
                 targetStationFibers.forEach((f, idx) => {
                     updatedFibers[f.id] = {
@@ -431,14 +459,15 @@
                 if (window.lucide) {
                     window.lucide.createIcons();
                 }
-            }, [fibers, stationNotes, editingStationNotes, activeTab, isLive, activeMenuFiberId, selectedFiberId, searchHistoryQuery]);
+            }, [fibers, stationNotes, editingStationNotes, activeTab, isLive, activeMenuFiberId, selectedFiberId, searchHistoryQuery, tempModalNoteText, tempOperatorName]);
 
-            /* STREAMING_CHUNK: Filtering metrics and active lists */
             // Exclude archived and M&O from active tracking counts
             const activeFibers = Object.values(fibers).filter(f => !f.archived);
-            const archivedFibers = Object.values(fibers).filter(f => f.archived);
+            
+            // All items that should be logged in history (both archived and currently active but tracked)
+            const historyFibers = Object.values(fibers).filter(f => f.saveToHistory);
+            
             const monitoredFibersCount = activeFibers.filter(f => f.stationId !== "M&O").length;
-
             const selectedFiber = fibers[selectedFiberId];
 
             return (
@@ -736,7 +765,6 @@
                             </div>
                         )}
 
-                        /* STREAMING_CHUNK: Setting up mobile list fallback interfaces */
                         {}
                         {/* Mobile Optimized View */}
                         {activeTab === "list" && (
@@ -801,7 +829,7 @@
                                                         </div>
 
                                                         <textarea 
-                                                            placeholder="הוסף הערה... (ניתן לרדת שורה)"
+                                                            placeholder="הוסף הערה..."
                                                             value={fiber.comments || ""}
                                                             onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
                                                             rows={2}
@@ -837,7 +865,6 @@
                             </div>
                         )}
 
-                        /* STREAMING_CHUNK: Designing the search and layout of the archived history logs */
                         {}
                         {/* ARCHIVE AND HISTORY TAB SCREEN */}
                         {activeTab === "history" && (
@@ -845,7 +872,7 @@
                                 <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-center shrink-0 mb-4">
                                     <div>
                                         <h2 class="text-lg font-bold text-slate-800">היסטוריית תהליכים וארכיון גלמים</h2>
-                                        <p class="text-xs text-slate-500">חיפוש, תחקור וקריאת נתונים של גלמים שעברו ארכוב מלוח העבודה</p>
+                                        <p class="text-xs text-slate-500">חיפוש, תחקור וקריאת נתונים של גלמים המשויכים לארכיון (גם כאלו שעדיין פעילים על הלוח)</p>
                                     </div>
                                     <div class="relative w-full max-w-md">
                                         <input 
@@ -866,31 +893,43 @@
                                                 <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold">
                                                     <th class="p-4">שם הגלם</th>
                                                     <th class="p-4">תאריך יצירה</th>
-                                                    <th class="p-4">תאריך ארכוב</th>
+                                                    <th class="p-4">סטטוס נוכחי</th>
                                                     <th class="p-4">הערות כלליות</th>
                                                     <th class="p-4 text-left">פעולות</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-slate-100 text-sm">
-                                                {archivedFibers
+                                                {historyFibers
                                                     .filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
                                                     .map(fiber => (
                                                         <tr key={fiber.id} class="hover:bg-slate-50/50">
                                                             <td class="p-4 font-bold text-slate-800">{fiber.name}</td>
                                                             <td class="p-4 text-xs text-slate-500">{new Date(fiber.timestamp).toLocaleDateString('he-IL')}</td>
-                                                            <td class="p-4 text-xs text-slate-500">{fiber.archiveTimestamp ? new Date(fiber.archiveTimestamp).toLocaleDateString('he-IL') : 'לא ידוע'}</td>
+                                                            <td class="p-4">
+                                                                {fiber.archived ? (
+                                                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                                                        אורכב והסתיים
+                                                                    </span>
+                                                                ) : (
+                                                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
+                                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                                        פעיל בלוח: {STATIONS.find(s => s.id === fiber.stationId)?.name || fiber.stationId}
+                                                                    </span>
+                                                                )}
+                                                            </td>
                                                             <td class="p-4 text-xs text-slate-600 truncate max-w-xs">{fiber.comments || '-'}</td>
                                                             <td class="p-4 text-left">
                                                                 <button 
                                                                     onClick={() => setSelectedFiberId(fiber.id)}
                                                                     class="text-blue-600 hover:text-blue-800 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
                                                                 >
-                                                                    צפה בדוח מלא
+                                                                    צפה בתיק גלם
                                                                 </button>
                                                             </td>
                                                         </tr>
                                                     ))}
-                                                {archivedFibers.filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase())).length === 0 && (
+                                                {historyFibers.filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase())).length === 0 && (
                                                     <tr>
                                                         <td colSpan="5" class="p-8 text-center text-slate-400 font-medium">לא נמצאו גלמים מתאימים בארכיון</td>
                                                     </tr>
@@ -903,7 +942,6 @@
                         )}
                     </main>
 
-                    /* STREAMING_CHUNK: Building the deep-dive fiber diary traveler modal */
                     {}
                     {/* FULL FIBER DIARY DETAILED TRAVELER MODAL */}
                     {selectedFiber && (
@@ -939,7 +977,8 @@
                                     <div class="w-1/3 border-l border-slate-200 bg-slate-50 overflow-y-auto custom-scrollbar p-3 space-y-2 shrink-0">
                                         <div class="text-[10px] font-bold text-slate-400 px-2 pb-1 uppercase tracking-wider">נתוני תחנות עבודה:</div>
                                         {STATIONS.map((station) => {
-                                            const hasData = selectedFiber.stationData && selectedFiber.stationData[station.id];
+                                            const rawData = selectedFiber.stationData && selectedFiber.stationData[station.id];
+                                            const hasData = Array.isArray(rawData) ? rawData.length > 0 : (typeof rawData === 'string' && rawData.trim() !== '');
                                             const isActive = modalActiveStation === station.id;
                                             return (
                                                 <button
@@ -971,17 +1010,70 @@
                                                 </h4>
                                             </div>
 
-                                            <textarea 
-                                                disabled={selectedFiber.archived}
-                                                placeholder={selectedFiber.archived ? "אין מידע להצגה עבור תחנה זו" : "הקש כאן להקלדת נתונים מפורטים, דוחות, תוצאות בדיקה או הערות ייעודיות עבור גלם זה בתחנה הנוכחית..."}
-                                                value={(selectedFiber.stationData && selectedFiber.stationData[modalActiveStation]) || ""}
-                                                onChange={(e) => handleUpdateStationData(selectedFiber.id, modalActiveStation, e.target.value)}
-                                                class="flex-1 w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none disabled:bg-slate-50 disabled:text-slate-500"
-                                            />
+                                            {/* Note timeline for current station */}
+                                            <div class="flex-1 overflow-y-auto mb-4 border border-slate-100 p-3 rounded-xl bg-slate-50/50 custom-scrollbar space-y-3">
+                                                {(() => {
+                                                    const rawData = selectedFiber.stationData ? selectedFiber.stationData[modalActiveStation] : null;
+                                                    let entries = [];
+                                                    if (Array.isArray(rawData)) {
+                                                        entries = rawData;
+                                                    } else if (typeof rawData === 'string' && rawData.trim() !== '') {
+                                                        // Legacy string fallback
+                                                        entries = [{ operator: "הערה כללית", timestamp: selectedFiber.timestamp, text: rawData }];
+                                                    }
+
+                                                    if (entries.length === 0) {
+                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות חתומות בתחנה זו</p>;
+                                                    }
+
+                                                    return entries.map((entry, idx) => (
+                                                        <div key={idx} class="bg-white border border-slate-150 p-3 rounded-xl shadow-xs">
+                                                            <div class="flex items-center justify-between text-[10px] text-slate-400 font-semibold mb-1.5 border-b border-slate-100 pb-1 pb-1">
+                                                                <span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">מפעיל: {entry.operator}</span>
+                                                                <span>{new Date(entry.timestamp).toLocaleString('he-IL')}</span>
+                                                            </div>
+                                                            <p class="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{entry.text}</p>
+                                                        </div>
+                                                    ));
+                                                })()}
+                                            </div>
+
+                                            {/* Add Signed entry box */}
+                                            {!selectedFiber.archived && (
+                                                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 shrink-0">
+                                                    <div class="flex gap-2">
+                                                        <input 
+                                                            type="text"
+                                                            placeholder="שם מפעיל..."
+                                                            value={tempOperatorName}
+                                                            onChange={(e) => setTempOperatorName(e.target.value)}
+                                                            class="w-1/3 px-2 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none font-bold"
+                                                        />
+                                                        <span class="text-xs text-slate-400 self-center font-semibold">
+                                                            חותמת זמן: {new Date().toLocaleDateString('he-IL')} (היום)
+                                                        </span>
+                                                    </div>
+                                                    <textarea 
+                                                        placeholder="הקלד נתונים, הערה או תוצאות מדידה חתומות לתחנה זו..."
+                                                        value={tempModalNoteText}
+                                                        onChange={(e) => setTempModalNoteText(e.target.value)}
+                                                        class="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none h-16"
+                                                    />
+                                                    <div class="flex justify-end">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => handleAddStationNoteEntry(selectedFiber.id, modalActiveStation)}
+                                                            class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition"
+                                                        >
+                                                            הוסף הערה חתומה
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Journey Audit Log Timeline Footer */}
-                                        <div class="h-1/3 border-t border-slate-100 pt-4 flex flex-col overflow-hidden shrink-0">
+                                        <div class="h-1/4 border-t border-slate-100 pt-4 flex flex-col overflow-hidden shrink-0">
                                             <h5 class="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5">
                                                 <i data-lucide="history" class="w-3.5 h-3.5"></i>
                                                 יומן מסע של הגלם (לוג תנועות אוטומטי):
