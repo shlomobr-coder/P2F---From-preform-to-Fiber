@@ -899,7 +899,6 @@
                                                     <th class="p-4">תאריך יצירה</th>
                                                     <th class="p-4">סטטוס נוכחי</th>
                                                     <th class="p-4">הערות כלליות</th>
-                                                    <th class="p-4 text-left">פעולות</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-slate-100 text-sm">
@@ -1025,7 +1024,7 @@
                                                     }
 
                                                     if (entries.length === 0) {
-                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות חתומות בתחנה זו</p>;
+                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות בתחנה זו</p>;
                                                     }
 
                                                     return entries.map((entry, idx) => (
