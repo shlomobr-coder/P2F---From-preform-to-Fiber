@@ -147,6 +147,10 @@
             const [modalActiveStation, setModalActiveStation] = useState("future_cops");
             const [searchHistoryQuery, setSearchHistoryQuery] = useState("");
             
+            // Sorting states for history tab
+            const [archiveSortField, setArchiveSortField] = useState("timestamp"); // "name", "timestamp"
+            const [archiveSortAsc, setArchiveSortAsc] = useState(false); // default descending (newest first)
+            
             // Operator custom inputs inside modal
             const [tempOperatorName, setTempOperatorName] = useState("");
             const [tempModalNoteText, setTempModalNoteText] = useState("");
@@ -459,11 +463,21 @@
                 setDraggedFiberId(null);
             };
 
+            // Handles sort clicks in the archive/history tab
+            const handleArchiveSort = (field) => {
+                if (archiveSortField === field) {
+                    setArchiveSortAsc(!archiveSortAsc);
+                } else {
+                    setArchiveSortField(field);
+                    setArchiveSortAsc(field === "name" ? true : false); // Name A-Z by default, Dates Newest first by default
+                }
+            };
+
             useEffect(() => {
                 if (window.lucide) {
                     window.lucide.createIcons();
                 }
-            }, [fibers, stationNotes, editingStationNotes, activeTab, isLive, activeMenuFiberId, selectedFiberId, searchHistoryQuery, tempModalNoteText, tempOperatorName]);
+            }, [fibers, stationNotes, editingStationNotes, activeTab, isLive, activeMenuFiberId, selectedFiberId, searchHistoryQuery, tempModalNoteText, tempOperatorName, archiveSortField, archiveSortAsc]);
 
             // Exclude archived and M&O from active tracking counts
             const activeFibers = Object.values(fibers).filter(f => !f.archived);
@@ -473,6 +487,24 @@
             
             const monitoredFibersCount = activeFibers.filter(f => f.stationId !== "M&O").length;
             const selectedFiber = fibers[selectedFiberId];
+
+            // Filtered and Sorted list for the Archive / History tab
+            const processedHistoryFibers = historyFibers
+                .filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
+                .sort((a, b) => {
+                    if (archiveSortField === "name") {
+                        const nameA = (a.name || "").toLowerCase();
+                        const nameB = (b.name || "").toLowerCase();
+                        return archiveSortAsc 
+                            ? nameA.localeCompare(nameB, 'he-IL') 
+                            : nameB.localeCompare(nameA, 'he-IL');
+                    } else {
+                        // date / timestamp
+                        const valA = Number(a[archiveSortField]) || 0;
+                        const valB = Number(b[archiveSortField]) || 0;
+                        return archiveSortAsc ? valA - valB : valB - valA;
+                    }
+                });
 
             return (
                 <div class="h-full flex flex-col overflow-hidden">
@@ -876,7 +908,7 @@
                                 <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-center shrink-0 mb-4">
                                     <div>
                                         <h2 class="text-lg font-bold text-slate-800">היסטוריית תהליכים</h2>
-                                        <p class="text-xs text-slate-500"></p>
+                                        <p class="text-xs text-slate-500">חיפוש, מיון ותחקור של גלמים המשויכים לארכיון. לחץ על כותרות הטבלה למטה כדי למיין לפי שם או תאריך!</p>
                                     </div>
                                     <div class="relative w-full max-w-md">
                                         <input 
@@ -894,45 +926,64 @@
                                     <div class="overflow-y-auto flex-1 custom-scrollbar">
                                         <table class="w-full text-right border-collapse">
                                             <thead>
-                                                <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold">
-                                                    <th class="p-4">שם הגלם</th>
-                                                    <th class="p-4">תאריך יצירה</th>
+                                                <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold select-none">
+                                                    <th 
+                                                        class="p-4 cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition"
+                                                        onClick={() => handleArchiveSort("name")}
+                                                    >
+                                                        <span class="flex items-center gap-1">
+                                                            שם הגלם
+                                                            {archiveSortField === "name" && (
+                                                                <span class="text-blue-600 font-bold">{archiveSortAsc ? "▲" : "▼"}</span>
+                                                            )}
+                                                        </span>
+                                                    </th>
+                                                    <th 
+                                                        class="p-4 cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition"
+                                                        onClick={() => handleArchiveSort("timestamp")}
+                                                    >
+                                                        <span class="flex items-center gap-1">
+                                                            תאריך יצירה
+                                                            {archiveSortField === "timestamp" && (
+                                                                <span class="text-blue-600 font-bold">{archiveSortAsc ? "▲" : "▼"}</span>
+                                                            )}
+                                                        </span>
+                                                    </th>
                                                     <th class="p-4">סטטוס נוכחי</th>
                                                     <th class="p-4">הערות כלליות</th>
+                                                    <th class="p-4 text-left">פעולות</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-slate-100 text-sm">
-                                                {historyFibers
-                                                    .filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
-                                                    .map(fiber => (
-                                                        <tr key={fiber.id} class="hover:bg-slate-50/50">
-                                                            <td class="p-4 font-bold text-slate-800">{fiber.name}</td>
-                                                            <td class="p-4 text-xs text-slate-500">{new Date(fiber.timestamp).toLocaleDateString('he-IL')}</td>
-                                                            <td class="p-4">
-                                                                {fiber.archived ? (
-                                                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                                                        אורכב והסתיים
-                                                                    </span>
-                                                                ) : (
-                                                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
-                                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                                        {STATIONS.find(s => s.id === fiber.stationId)?.name || fiber.stationId}
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            <td class="p-4 text-xs text-slate-600 truncate max-w-xs">{fiber.comments || '-'}</td>
-                                                            <td class="p-4 text-left">
-                                                                <button 
-                                                                    onClick={() => setSelectedFiberId(fiber.id)}
-                                                                    class="text-blue-600 hover:text-blue-800 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
-                                                                >
-                                                                    צפה בתיק גלם
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                {historyFibers.filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase())).length === 0 && (
+                                                {processedHistoryFibers.map(fiber => (
+                                                    <tr key={fiber.id} class="hover:bg-slate-50/50">
+                                                        <td class="p-4 font-bold text-slate-800">{fiber.name}</td>
+                                                        <td class="p-4 text-xs text-slate-500">{new Date(fiber.timestamp).toLocaleDateString('he-IL')}</td>
+                                                        <td class="p-4">
+                                                            {fiber.archived ? (
+                                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                                                    אורכב והסתיים
+                                                                </span>
+                                                            ) : (
+                                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
+                                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                                    {STATIONS.find(s => s.id === fiber.stationId)?.name || fiber.stationId}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td class="p-4 text-xs text-slate-600 truncate max-w-xs">{fiber.comments || '-'}</td>
+                                                        <td class="p-4 text-left">
+                                                            <button 
+                                                                onClick={() => setSelectedFiberId(fiber.id)}
+                                                                class="text-blue-600 hover:text-blue-800 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
+                                                            >
+                                                                צפה בתיק גלם
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {processedHistoryFibers.length === 0 && (
                                                     <tr>
                                                         <td colSpan="5" class="p-8 text-center text-slate-400 font-medium">לא נמצאו גלמים מתאימים בארכיון</td>
                                                     </tr>
