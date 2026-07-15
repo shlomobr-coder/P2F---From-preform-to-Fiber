@@ -914,7 +914,7 @@
                                                                 ) : (
                                                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
                                                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                                        פעיל בלוח: {STATIONS.find(s => s.id === fiber.stationId)?.name || fiber.stationId}
+                                                                       {STATIONS.find(s => s.id === fiber.stationId)?.name || fiber.stationId}
                                                                     </span>
                                                                 )}
                                                             </td>
@@ -990,9 +990,7 @@
                                                         <span class={`w-2.5 h-2.5 rounded-full ${station.color}`}></span>
                                                         <span>{station.name}</span>
                                                     </span>
-                                                    {hasData && (
-                                                        <span class="text-green-600 bg-green-50 text-[10px] px-1.5 py-0.5 rounded-md font-bold">מולא</span>
-                                                    )}
+                                            
                                                 </button>
                                             );
                                         })}
@@ -1065,7 +1063,7 @@
                                                             onClick={() => handleAddStationNoteEntry(selectedFiber.id, modalActiveStation)}
                                                             class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition"
                                                         >
-                                                            הוסף הערה חתומה
+                                                            הוסף
                                                         </button>
                                                     </div>
                                                 </div>
