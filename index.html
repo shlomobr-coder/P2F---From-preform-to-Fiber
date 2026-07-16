@@ -56,7 +56,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        /* STREAMING_CHUNK: Initializing database configuration and stations metadata */
         // ==========================================
         // !!! הגדרות FIREBASE !!!
         // ==========================================
@@ -166,7 +165,6 @@
             const [editingNoteIndex, setEditingNoteIndex] = useState(null);
             const [editNoteText, setEditNoteText] = useState("");
 
-            /* STREAMING_CHUNK: Managing state sync and storage effects */
             useEffect(() => {
                 // Pre-fill operator name from storage for ease of use
                 const savedOperator = localStorage.getItem('last_operator');
@@ -239,7 +237,6 @@
                 runFirebase();
             }, []);
 
-            /* STREAMING_CHUNK: Syncing database updates with fallback local cache */
             const updateDatabase = async (newFibers, newStationNotes = null) => {
                 if (newFibers) setFibers(newFibers);
                 if (newStationNotes) setStationNotes(newStationNotes);
@@ -341,7 +338,6 @@
                 updateDatabase(updatedFibers);
             };
 
-            /* STREAMING_CHUNK: Appending station data entries and managing sub logs */
             const handleAddStationNoteEntry = (fiberId, stationId) => {
                 if (!tempModalNoteText.trim()) return;
                 const fiber = fibers[fiberId];
@@ -444,7 +440,6 @@
                 if (selectedFiberId === fiberId) setSelectedFiberId(null);
             };
 
-            /* STREAMING_CHUNK: Drag and drop operations & keyboard events */
             const handleMovePriority = (fiberId, direction) => {
                 const fiber = fibers[fiberId];
                 if (!fiber || fiber.archived) return;
@@ -566,7 +561,6 @@
                 }
             };
 
-            /* STREAMING_CHUNK: Filtering active fiber collections and history items */
             // Exclude archived and M&O from active tracking counts
             const activeFibers = Object.values(fibers).filter(f => !f.archived);
             
@@ -685,7 +679,8 @@
                                 class="fixed top-4 left-4 z-50 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl px-4 py-2 text-xs font-bold shadow-lg transition flex items-center gap-1.5"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg>
-                                <span>יציאה ממצב מצגת (ESC)</span>
+                                מצב מצגת
+                                    <span>יציאה ממצב מצגת (ESC)</span>
                             </button>
                         )}
 
@@ -923,9 +918,7 @@
                             </div>
                         )}
 
-                        /* STREAMING_CHUNK: Setting up mobile list renderings */
                         {}
-                        {/* Mobile Optimized View */}
                         {activeTab === "list" && (
                             <div class="p-4 space-y-4 md:hidden">
                                 {/* Creation Form Bar inside list tab */}
@@ -1066,9 +1059,7 @@
                             </div>
                         )}
 
-                        /* STREAMING_CHUNK: Rendering the sortable archived history tab */
                         {}
-                        {/* ARCHIVE AND HISTORY TAB SCREEN */}
                         {activeTab === "history" && (
                             <div class="p-6 max-w-6xl mx-auto flex flex-col gap-4">
                                 <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-center">
@@ -1116,7 +1107,7 @@
                                                 </th>
                                                 <th class="p-4">סטטוס נוכחי</th>
                                                 <th class="p-4">הערות כלליות</th>
-                                               </tr>
+                                                </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-100 text-sm">
                                             {processedHistoryFibers.map(fiber => (
@@ -1159,7 +1150,6 @@
                         )}
                     </main>
 
-                    /* STREAMING_CHUNK: Designing the detailed traveler modal and notes editing dialogs */
                     {}
                     {/* FULL FIBER DIARY DETAILED TRAVELER MODAL */}
                     {selectedFiber && (
@@ -1208,9 +1198,7 @@
                                                         <span class={`w-2.5 h-2.5 rounded-full ${station.color}`}></span>
                                                         <span>{station.name}</span>
                                                     </span>
-                                                    {hasData && (
-                                                        <span class="text-green-600 bg-green-50 text-[10px] px-1.5 py-0.5 rounded-md font-bold">מולא</span>
-                                                    )}
+                                                    
                                                 </button>
                                             );
                                         })}
