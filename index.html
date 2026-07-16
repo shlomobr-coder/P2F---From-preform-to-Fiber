@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he" dir="rtl" class="notranslate">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -49,14 +49,14 @@
         }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col">
+<body class="h-screen overflow-hidden flex flex-col notranslate">
 
     <div id="root" class="h-full flex flex-col"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        /* STREAMING_CHUNK: Initializing database configuration and stations metadata */
+        {/* STREAMING_CHUNK: Initializing database configuration and stations metadata */}
         // ==========================================
         // !!! הגדרות FIREBASE !!!
         // ==========================================
@@ -166,7 +166,7 @@
             const [editingNoteIndex, setEditingNoteIndex] = useState(null);
             const [editNoteText, setEditNoteText] = useState("");
 
-            /* STREAMING_CHUNK: Syncing local states and fullscreen tracking */
+            /* STREAMING_CHUNK: Managing state sync and storage effects */
             useEffect(() => {
                 // Pre-fill operator name from storage for ease of use
                 const savedOperator = localStorage.getItem('last_operator');
@@ -239,7 +239,7 @@
                 runFirebase();
             }, []);
 
-            /* STREAMING_CHUNK: Implementing the DB storage and fallback updates */
+            /* STREAMING_CHUNK: Syncing database updates with fallback local cache */
             const updateDatabase = async (newFibers, newStationNotes = null) => {
                 if (newFibers) setFibers(newFibers);
                 if (newStationNotes) setStationNotes(newStationNotes);
@@ -341,6 +341,7 @@
                 updateDatabase(updatedFibers);
             };
 
+            /* STREAMING_CHUNK: Appending station data entries and managing sub logs */
             const handleAddStationNoteEntry = (fiberId, stationId) => {
                 if (!tempModalNoteText.trim()) return;
                 const fiber = fibers[fiberId];
@@ -443,7 +444,7 @@
                 if (selectedFiberId === fiberId) setSelectedFiberId(null);
             };
 
-            /* STREAMING_CHUNK: Managing fiber priorities within stations */
+            /* STREAMING_CHUNK: Managing priority movements and grid-locks */
             const handleMovePriority = (fiberId, direction) => {
                 const fiber = fibers[fiberId];
                 if (!fiber || fiber.archived) return;
@@ -543,7 +544,7 @@
                     setArchiveSortAsc(!archiveSortAsc);
                 } else {
                     setArchiveSortField(field);
-                    setArchiveSortAsc(field === "name" ? true : false); // default descending for date
+                    setArchiveSortAsc(field === "name" ? true : false); 
                 }
             };
 
@@ -608,7 +609,7 @@
                         <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="m12 3-10 9h3v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8h3z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polygon points="2 17 12 22 22 17"/><polygon points="2 12 12 17 22 12"/></svg>
                                 </div>
                                 <div>
                                     <h1 class="text-xl font-bold text-slate-800">P2F - from preform to fiber</h1>
@@ -616,7 +617,7 @@
                                 </div>
                             </div>
 
-                            {/* Navigation Tabs, Presentation Mode and Global Metrics */}
+                            {/* Navigation Tabs and Global Metrics */}
                             <div class="flex flex-wrap items-center gap-4">
                                 {/* Toggle Presentation Button */}
                                 <button 
@@ -674,9 +675,20 @@
                         </div>
                     )}
 
-                    /* STREAMING_CHUNK: Setting up mobile list renderings */
                     {/* MAIN GRAPHICAL BOARD VIEW */}
                     <main class={`flex-1 overflow-y-auto relative bg-slate-50 ${isPresentation ? "p-4" : ""}`}>
+                        
+                        {/* Floating Exit Presentation Mode button in top-left corner */}
+                        {isPresentation && (
+                            <button 
+                                onClick={togglePresentation}
+                                class="fixed top-4 left-4 z-50 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl px-4 py-2 text-xs font-bold shadow-lg transition flex items-center gap-1.5"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg>
+                                <span>יציאה ממצב מצגת (ESC)</span>
+                            </button>
+                        )}
+
                         {activeTab === "board" && (
                             <div class={`flex flex-col gap-6 ${isPresentation ? "p-0 h-full" : "p-6"}`}>
                                 {/* Creation Form Bar (Inside main layout to allow scrolling away) */}
@@ -911,8 +923,6 @@
                             </div>
                         )}
 
-                        /* STREAMING_CHUNK: Setting up mobile list renderings */
-                        {}
                         {/* Mobile Optimized View */}
                         {activeTab === "list" && (
                             <div class="p-4 space-y-4 md:hidden">
@@ -1070,7 +1080,7 @@
                                             onChange={(e) => setSearchHistoryQuery(e.target.value)}
                                             class="w-full pl-3 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                         />
-                                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute right-3 top-3"></i>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400 absolute right-3 top-3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                                     </div>
                                 </div>
 
@@ -1102,7 +1112,6 @@
                                                 </th>
                                                 <th class="p-4">סטטוס נוכחי</th>
                                                 <th class="p-4">הערות כלליות</th>
-                                                <th class="p-4 text-left">פעולות</th>
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-100 text-sm">
@@ -1178,7 +1187,7 @@
                                     
                                     {/* Sidebar: Navigation of Stations */}
                                     <div class="w-1/3 border-l border-slate-200 bg-slate-50 overflow-y-auto custom-scrollbar p-3 space-y-2 shrink-0">
-                                        <div class="text-[10px] font-bold text-slate-400 px-2 pb-1 uppercase tracking-wider">הערות עפ"י תחנות</div>
+                                        <div class="text-[10px] font-bold text-slate-400 px-2 pb-1 uppercase tracking-wider font-sans">הערות עפ"י תחנות</div>
                                         {STATIONS.map((station) => {
                                             const rawData = selectedFiber.stationData && selectedFiber.stationData[station.id];
                                             const hasData = Array.isArray(rawData) ? rawData.length > 0 : (typeof rawData === 'string' && rawData.trim() !== '');
@@ -1226,7 +1235,7 @@
                                                     }
 
                                                     if (entries.length === 0) {
-                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות חתומות בתחנה זו</p>;
+                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות עבור תחנה זו</p>;
                                                     }
 
                                                     return entries.map((entry, idx) => (
