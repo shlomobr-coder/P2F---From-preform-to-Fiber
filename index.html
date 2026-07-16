@@ -56,7 +56,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        {/* STREAMING_CHUNK: Initializing database configuration and stations metadata */}
         // ==========================================
         // !!! הגדרות FIREBASE !!!
         // ==========================================
@@ -166,7 +165,6 @@
             const [editingNoteIndex, setEditingNoteIndex] = useState(null);
             const [editNoteText, setEditNoteText] = useState("");
 
-            /* STREAMING_CHUNK: Managing state sync and storage effects */
             useEffect(() => {
                 // Pre-fill operator name from storage for ease of use
                 const savedOperator = localStorage.getItem('last_operator');
@@ -239,7 +237,6 @@
                 runFirebase();
             }, []);
 
-            /* STREAMING_CHUNK: Syncing database updates with fallback local cache */
             const updateDatabase = async (newFibers, newStationNotes = null) => {
                 if (newFibers) setFibers(newFibers);
                 if (newStationNotes) setStationNotes(newStationNotes);
@@ -341,7 +338,6 @@
                 updateDatabase(updatedFibers);
             };
 
-            /* STREAMING_CHUNK: Appending station data entries and managing sub logs */
             const handleAddStationNoteEntry = (fiberId, stationId) => {
                 if (!tempModalNoteText.trim()) return;
                 const fiber = fibers[fiberId];
@@ -444,7 +440,6 @@
                 if (selectedFiberId === fiberId) setSelectedFiberId(null);
             };
 
-            /* STREAMING_CHUNK: Managing priority movements and grid-locks */
             const handleMovePriority = (fiberId, direction) => {
                 const fiber = fibers[fiberId];
                 if (!fiber || fiber.archived) return;
@@ -632,7 +627,7 @@
                                 <div class="flex bg-slate-100 p-1 rounded-lg">
                                     <button 
                                         onClick={() => setActiveTab("board")}
-                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "board" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${(activeTab === "board" || activeTab === "list") ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
                                     >
                                         לוח מעקב ראשי
                                     </button>
@@ -657,18 +652,18 @@
                         </header>
                     )}
 
-                    {/* Mobile Switcher for Board layout */}
-                    {activeTab === "board" && !isPresentation && (
+                    {/* Mobile Switcher for Board layout - Remains visible on both 'board' and 'list' sub-tabs */}
+                    {(activeTab === "board" || activeTab === "list") && !isPresentation && (
                         <div class="md:hidden flex bg-white border-b border-slate-200 shrink-0">
                             <button 
                                 onClick={() => setActiveTab("board")}
-                                class="flex-1 py-3 text-center text-sm font-semibold border-b-2 border-blue-600 text-blue-600 bg-blue-50/50"
+                                class={`flex-1 py-3 text-center text-sm font-semibold border-b-2 ${activeTab === "board" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-transparent text-slate-600"}`}
                             >
                                 ממשק מחשב
                             </button>
                             <button 
                                 onClick={() => setActiveTab("list")}
-                                class="flex-1 py-3 text-center text-sm font-semibold border-b-2 border-transparent text-slate-600"
+                                class={`flex-1 py-3 text-center text-sm font-semibold border-b-2 ${activeTab === "list" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-transparent text-slate-600"}`}
                             >
                                 ממשק לנייד
                             </button>
@@ -923,6 +918,7 @@
                             </div>
                         )}
 
+                        {}
                         {/* Mobile Optimized View */}
                         {activeTab === "list" && (
                             <div class="p-4 space-y-4 md:hidden">
