@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- מניעת קפיצת חלונית התרגום של כרום בעת רענון -->
     <meta name="google" content="notranslate">
+    
+    <!-- תגיות מטא להפיכת האתר לאפליקציה עצמאית (PWA) על מסך הבית -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="P2F">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3144/3144456.png">
+    
     <title> P2F - from preform to fiber </title>
     
     <!-- Tailwind CSS for modern premium styling -->
@@ -539,7 +547,7 @@
                     setArchiveSortAsc(!archiveSortAsc);
                 } else {
                     setArchiveSortField(field);
-                    setArchiveSortAsc(field === "name" ? true : false); 
+                    setArchiveSortAsc(field === "name" ? true : false); // default descending (newest first)
                 }
             };
 
@@ -559,6 +567,11 @@
                         });
                     }
                 }
+            };
+
+            const handleResetToHome = () => {
+                setActiveTab("board");
+                setSelectedFiberId(null);
             };
 
             // Exclude archived and M&O from active tracking counts
@@ -602,7 +615,12 @@
                     {/* Header completely hidden in Presentation Mode */}
                     {!isPresentation && (
                         <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
-                            <div class="flex items-center gap-3">
+                            {/* כותרת האתר - כעת מקושרת ומאפסת חזרה למסך הראשי בלחיצה */}
+                            <div 
+                                onClick={handleResetToHome}
+                                class="flex items-center gap-3 cursor-pointer select-none hover:opacity-80 transition active:scale-95 duration-150"
+                                title="חזרה לדף הבית"
+                            >
                                 <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polygon points="2 17 12 22 22 17"/><polygon points="2 12 12 17 22 12"/></svg>
                                 </div>
@@ -612,7 +630,7 @@
                                 </div>
                             </div>
 
-                            {/* Navigation Tabs and Global Metrics */}
+                            {/* Navigation Tabs, Presentation Mode and Global Metrics */}
                             <div class="flex flex-wrap items-center gap-4">
                                 {/* Toggle Presentation Button */}
                                 <button 
@@ -627,7 +645,7 @@
                                 <div class="flex bg-slate-100 p-1 rounded-lg">
                                     <button 
                                         onClick={() => setActiveTab("board")}
-                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${(activeTab === "board" || activeTab === "list") ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "board" || activeTab === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
                                     >
                                         לוח מעקב ראשי
                                     </button>
@@ -652,7 +670,7 @@
                         </header>
                     )}
 
-                    {/* Mobile Switcher for Board layout - Remains visible on both 'board' and 'list' sub-tabs */}
+                    {/* Mobile Switcher for Board layout */}
                     {(activeTab === "board" || activeTab === "list") && !isPresentation && (
                         <div class="md:hidden flex bg-white border-b border-slate-200 shrink-0">
                             <button 
@@ -686,7 +704,7 @@
 
                         {activeTab === "board" && (
                             <div class={`flex flex-col gap-6 ${isPresentation ? "p-0 h-full" : "p-6"}`}>
-                                {/* Creation Form Bar (Inside main layout to allow scrolling away) */}
+                                {/* Creation Form Bar (Only shown outside presentation mode) */}
                                 {!isPresentation && (
                                     <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
                                         <form onSubmit={handleAddFiber} class="flex flex-wrap items-center gap-4">
@@ -918,7 +936,6 @@
                             </div>
                         )}
 
-                        {}
                         {/* Mobile Optimized View */}
                         {activeTab === "list" && (
                             <div class="p-4 space-y-4 md:hidden">
@@ -1016,7 +1033,7 @@
                                                                     class="text-xs bg-slate-100 border border-slate-300 rounded px-1.5 py-1 text-slate-700 font-semibold"
                                                                 >
                                                                     {STATIONS.map(st => (
-                                                                        <option key={st.id} value={st.id}>העבר ל: {st.name}</option>
+                                                                        <option key={st.id} value={st.id}>שלח ל: {st.name}</option>
                                                                     ))}
                                                                 </select>
                                                             </div>
@@ -1108,7 +1125,7 @@
                                                 </th>
                                                 <th class="p-4">סטטוס נוכחי</th>
                                                 <th class="p-4">הערות כלליות</th>
-                                            </tr>
+                                               </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-100 text-sm">
                                             {processedHistoryFibers.map(fiber => (
@@ -1172,7 +1189,7 @@
                                     </div>
                                     <button 
                                         onClick={() => setSelectedFiberId(null)}
-                                        class="text-slate-400 hover:text-white p-1 rounded-lg transition"
+                                        class="text-slate-400 hover:text-white p-1 rounded-lg transition flex items-center justify-center"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                                     </button>
@@ -1199,7 +1216,7 @@
                                                         <span>{station.name}</span>
                                                     </span>
                                                     {hasData && (
-                                                    <span class="text-green-600 bg-green-50 text-[10px] px-1.5 py-0.5 rounded-md font-bold">מולא</span>
+                                                        <span class="text-green-600 bg-green-50 text-[10px] px-1.5 py-0.5 rounded-md font-bold">מולא</span>
                                                     )}
                                                 </button>
                                             );
@@ -1405,3 +1422,5 @@
     </script>
 </body>
 </html>
+```
+eof
