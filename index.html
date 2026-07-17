@@ -898,7 +898,7 @@
                                                                     <textarea 
                                                                         disabled={isPresentation}
                                                                         dir="auto"
-                                                                        placeholder="הוסף הערה... (Enter לשורה חדשה)"
+                                                                        placeholder=""
                                                                         value={fiber.comments || ""}
                                                                         onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
                                                                         rows={2}
@@ -1042,7 +1042,7 @@
 
                                                         <textarea 
                                                             dir="auto"
-                                                            placeholder="הוסף הערה..."
+                                                            placeholder=""
                                                             value={fiber.comments || ""}
                                                             onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
                                                             rows={2}
