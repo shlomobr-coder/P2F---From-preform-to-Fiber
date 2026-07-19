@@ -230,7 +230,6 @@
                 runFirebase();
             }, []);
 
-            /* STREAMING_CHUNK: Implementing the DB storage and fallback updates */
             const updateDatabase = async (newFibers, newStationNotes = null) => {
                 if (newFibers) setFibers(newFibers);
                 if (newStationNotes) setStationNotes(newStationNotes);
@@ -445,7 +444,6 @@
                 handleCloseReport(fiberId);
             };
 
-            /* STREAMING_CHUNK: Managing fiber priorities within stations */
             const handleMovePriority = (fiberId, direction) => {
                 const fiber = fibers[fiberId];
                 if (!fiber || fiber.archived) return;
@@ -567,8 +565,8 @@
                         tempModalNoteText: "",
                         isEditingName: false,
                         editNameText: fibers[fiberId].name || "",
-                        x: 80 + (currentCount * 35),
-                        y: 100 + (currentCount * 35),
+                        x: window.innerWidth > 768 ? (80 + (currentCount * 35)) : 10,
+                        y: window.innerWidth > 768 ? (100 + (currentCount * 35)) : 50,
                         zIndex: 50 + currentCount
                     }
                 }));
@@ -610,6 +608,7 @@
             };
 
             const initiateModalDrag = (e, fiberId) => {
+                if (window.innerWidth <= 768) return; // Disable drag on mobile layout
                 if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) return;
                 e.preventDefault();
                 bringToFront(fiberId);
@@ -682,58 +681,52 @@
                         </div>
                     )}
 
-                    {/* Header completely hidden in Presentation Mode */}
+                    {/* Header Layout - Fixed Mobile Compatibility */}
                     {!isPresentation && (
-                        <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
-                            {/* כותרת האתר - כעת מקושרת ומאפסת חזרה למסך הראשי בלחיצה */}
+                        <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 flex flex-row items-center justify-between gap-4 shrink-0">
                             <div 
                                 onClick={handleResetToHome}
-                                class="flex items-center gap-3 cursor-pointer select-none hover:opacity-80 transition active:scale-95 duration-150"
+                                class="flex items-center gap-2 md:gap-3 cursor-pointer select-none hover:opacity-80 transition active:scale-95 duration-150"
                                 title="חזרה לדף הבית"
                             >
-                                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
-                                    <span class="text-sm font-extrabold tracking-wider font-sans select-none">P2F</span>
+                                <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shrink-0">
+                                    <span class="text-xs md:text-sm font-extrabold tracking-wider font-sans select-none">P2F</span>
                                 </div>
                                 <div>
-                                    <h1 class="text-xl font-bold text-slate-800">P2F - from preform to fiber</h1>
-                                    <p class="text-xs text-slate-500">תכנון, מעקב ועדכון התהליכים באולם בזמן אמת</p>
+                                    <h1 class="text-sm md:text-xl font-bold text-slate-800 leading-tight">P2F - from preform to fiber</h1>
+                                    <p class="hidden md:block text-xs text-slate-500">תכנון, מעקב ועדכון התהליכים באולם בזמן אמת</p>
                                 </div>
                             </div>
 
-                            {/* Navigation Tabs, Presentation Mode and Global Metrics */}
-                            <div class="flex flex-wrap items-center gap-4">
+                            <div class="flex items-center gap-2 md:gap-4">
                                 {/* Toggle Presentation Button */}
                                 <button 
                                     onClick={togglePresentation}
-                                    class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition shadow-sm hover:shadow text-xs font-semibold"
+                                    class="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition shadow-sm hover:shadow text-xs font-semibold"
                                     title="מצב מצגת"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect width="20" height="15" x="2" y="3" rx="2"/><line x1="12" x2="12" y1="18" y2="21"/><line x1="8" x2="16" y1="21" y2="21"/></svg>
-                                    <span>מצב מצגת (גרסת מחשב בלבד)</span>
+                                    <span>מצב מצגת</span>
                                 </button>
 
-                                <div class="flex bg-slate-100 p-1 rounded-lg">
+                                <div class="flex bg-slate-100 p-0.5 md:p-1 rounded-lg">
                                     <button 
                                         onClick={() => setActiveTab("board")}
-                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "board" || activeTab === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+                                        class={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "board" || activeTab === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
                                     >
-                                        לוח מעקב ראשי
+                                        לוח מעקב
                                     </button>
                                     <button 
                                         onClick={() => setActiveTab("history")}
-                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "history" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+                                        class={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "history" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
                                     >
                                         ארכיון
                                     </button>
                                 </div>
 
-                                <div class="flex items-center gap-4">
-                                    <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg text-xs text-slate-600">
-                                        <span class={`w-2 h-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></span>
-                                        <span class="font-medium">{isLive ? 'מחובר לפיירבייס' : 'מצב הדגמה'}</span>
-                                    </div>
-                                    <div class="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
-                                        סה"כ במעקב: {monitoredFibersCount} סיבים
+                                <div class="hidden sm:flex items-center gap-3">
+                                    <div class="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap">
+                                        במעקב: {monitoredFibersCount}
                                     </div>
                                 </div>
                             </div>
@@ -745,13 +738,13 @@
                         <div class="md:hidden flex bg-white border-b border-slate-200 shrink-0">
                             <button 
                                 onClick={() => setActiveTab("board")}
-                                class={`flex-1 py-3 text-center text-sm font-semibold border-b-2 ${activeTab === "board" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-transparent text-slate-600"}`}
+                                class={`flex-1 py-2.5 text-center text-xs font-bold border-b-2 ${activeTab === "board" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-transparent text-slate-600"}`}
                             >
                                 ממשק מחשב
                             </button>
                             <button 
                                 onClick={() => setActiveTab("list")}
-                                class={`flex-1 py-3 text-center text-sm font-semibold border-b-2 ${activeTab === "list" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-transparent text-slate-600"}`}
+                                class={`flex-1 py-2.5 text-center text-xs font-bold border-b-2 ${activeTab === "list" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-transparent text-slate-600"}`}
                             >
                                 ממשק לנייד
                             </button>
@@ -1254,8 +1247,8 @@
                                     top: `${modal.y}px`,
                                     left: `${modal.x}px`,
                                     zIndex: modal.zIndex,
-                                    width: '760px',
-                                    height: '560px'
+                                    width: window.innerWidth > 768 ? '760px' : 'calc(100vw - 20px)',
+                                    height: window.innerWidth > 768 ? '560px' : '85vh'
                                 }}
                                 class="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150"
                             >
@@ -1502,7 +1495,7 @@
                                 <div class="bg-slate-50 border-t border-slate-200 px-4 py-3 flex justify-between items-center shrink-0">
                                     <button 
                                         onClick={() => handleDeleteOrArchiveFiber(fiberId)}
-                                        class="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-3 py-1.5 rounded-lg transition"
+                                        class="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-4 py-1.5 rounded-lg transition"
                                     >
                                         {fiber.archived ? 'מחק לצמיתות מהארכיון' : (fiber.saveToHistory !== false ? 'ארכב והעבר להיסטוריה' : 'מחק גלם לחלוטין')}
                                     </button>
