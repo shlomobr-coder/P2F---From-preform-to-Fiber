@@ -59,12 +59,11 @@
 </head>
 <body class="h-screen overflow-hidden flex flex-col notranslate">
 
-    <div id="root" class="h-full flex flex-col notranslate"></div>
+    <div id="root" class="h-full flex flex-col"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        {}
         // ==========================================
         // !!! הגדרות FIREBASE !!!
         // ==========================================
@@ -174,7 +173,6 @@
             const [editingNoteIndex, setEditingNoteIndex] = useState(null);
             const [editNoteText, setEditNoteText] = useState("");
 
-            {}
             useEffect(() => {
                 // Pre-fill operator name from storage for ease of use
                 const savedOperator = localStorage.getItem('last_operator');
@@ -247,7 +245,6 @@
                 runFirebase();
             }, []);
 
-            {}
             const updateDatabase = async (newFibers, newStationNotes = null) => {
                 if (newFibers) setFibers(newFibers);
                 if (newStationNotes) setStationNotes(newStationNotes);
@@ -349,7 +346,6 @@
                 updateDatabase(updatedFibers);
             };
 
-            {}
             const handleAddStationNoteEntry = (fiberId, stationId) => {
                 if (!tempModalNoteText.trim()) return;
                 const fiber = fibers[fiberId];
@@ -452,7 +448,6 @@
                 if (selectedFiberId === fiberId) setSelectedFiberId(null);
             };
 
-            {}
             const handleMovePriority = (fiberId, direction) => {
                 const fiber = fibers[fiberId];
                 if (!fiber || fiber.archived) return;
@@ -617,9 +612,9 @@
                         </div>
                     )}
 
-                    {/* Header: Fully responsive and always visible on mobile/desktop unless presentation is active */}
+                    {/* Header completely hidden in Presentation Mode */}
                     {!isPresentation && (
-                        <header class="bg-white border-b border-slate-200 px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4 shrink-0">
+                        <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
                             {/* כותרת האתר - כעת מקושרת ומאפסת חזרה למסך הראשי בלחיצה */}
                             <div 
                                 onClick={handleResetToHome}
@@ -627,47 +622,48 @@
                                 title="חזרה לדף הבית"
                             >
                                 <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
+                                {/*    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polygon points="2 17 12 22 22 17"/><polygon points="2 12 12 17 22 12"/></svg> */}
                                     <span class="text-sm font-extrabold tracking-wider font-sans select-none">P2F</span>
                                 </div>
                                 <div>
-                                    <h1 class="text-lg md:text-xl font-bold text-slate-800 leading-tight">P2F - from preform to fiber</h1>
-                                    <p class="text-[10px] md:text-xs text-slate-500 hidden sm:block">תכנון, מעקב ועדכון התהליכים באולם בזמן אמת</p>
+                                    <h1 class="text-xl font-bold text-slate-800">P2F - from preform to fiber</h1>
+                                    <p class="text-xs text-slate-500">תכנון, מעקב ועדכון התהליכים באולם בזמן אמת</p>
                                 </div>
                             </div>
 
                             {/* Navigation Tabs, Presentation Mode and Global Metrics */}
-                            <div class="flex flex-wrap items-center justify-center md:justify-end gap-2 md:gap-4 w-full md:w-auto">
-                                {/* Toggle Presentation Button (Hidden on Mobile) */}
+                            <div class="flex flex-wrap items-center gap-4">
+                                {/* Toggle Presentation Button */}
                                 <button 
                                     onClick={togglePresentation}
-                                    class="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition shadow-sm hover:shadow text-xs font-semibold"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition shadow-sm hover:shadow text-xs font-semibold"
                                     title="מצב מצגת"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect width="20" height="15" x="2" y="3" rx="2"/><line x1="12" x2="12" y1="18" y2="21"/><line x1="8" x2="16" y1="21" y2="21"/></svg>
-                                    <span>מצב מצגת</span>
+                                    <span>מצב מצגת (גרסת מחשב בלבד)</span>
                                 </button>
 
                                 <div class="flex bg-slate-100 p-1 rounded-lg">
                                     <button 
                                         onClick={() => setActiveTab("board")}
-                                        class={`px-3 py-1 text-xs font-semibold transition ${activeTab === "board" || activeTab === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "board" || activeTab === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
                                     >
                                         לוח מעקב ראשי
                                     </button>
                                     <button 
                                         onClick={() => setActiveTab("history")}
-                                        class={`px-3 py-1 text-xs font-semibold transition ${activeTab === "history" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
+                                        class={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${activeTab === "history" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
                                     >
                                         ארכיון
                                     </button>
                                 </div>
 
-                                <div class="flex items-center gap-2">
-                                    <div class="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg text-[10px] md:text-xs text-slate-600">
-                                        <span class={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></span>
+                                <div class="flex items-center gap-4">
+                                    <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg text-xs text-slate-600">
+                                        <span class={`w-2 h-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></span>
                                         <span class="font-medium">{isLive ? 'מחובר לפיירבייס' : 'מצב הדגמה'}</span>
                                     </div>
-                                    <div class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] md:text-xs font-semibold whitespace-nowrap">
+                                    <div class="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
                                         סה"כ במעקב: {monitoredFibersCount} סיבים
                                     </div>
                                 </div>
@@ -902,7 +898,7 @@
                                                                     <textarea 
                                                                         disabled={isPresentation}
                                                                         dir="auto"
-                                                                        placeholder="הוסף הערה... (Enter לשורה חדשה)"
+                                                                        placeholder=""
                                                                         value={fiber.comments || ""}
                                                                         onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
                                                                         rows={2}
@@ -953,7 +949,6 @@
                                         </span>
                                         <input 
                                             type="text" 
-                                            dir="auto"
                                             placeholder="למשל: P0528 NPM"
                                             value={newFiberName}
                                             onChange={(e) => setNewFiberName(e.target.value)}
@@ -1047,7 +1042,7 @@
 
                                                         <textarea 
                                                             dir="auto"
-                                                            placeholder="הוסף הערה..."
+                                                            placeholder=""
                                                             value={fiber.comments || ""}
                                                             onChange={(e) => handleUpdateComments(fiber.id, e.target.value)}
                                                             rows={2}
@@ -1131,8 +1126,7 @@
                                                 </th>
                                                 <th class="p-4">סטטוס נוכחי</th>
                                                 <th class="p-4">הערות כלליות</th>
-                                                <th class="p-4 text-left">פעולות</th>
-                                            </tr>
+                                               </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-100 text-sm">
                                             {processedHistoryFibers.map(fiber => (
@@ -1255,7 +1249,7 @@
                                                     }
 
                                                     if (entries.length === 0) {
-                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות חתומות בתחנה זו</p>;
+                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות עבור תחנה זו</p>;
                                                     }
 
                                                     return entries.map((entry, idx) => (
@@ -1431,17 +1425,3 @@
 </html>
 ```
 eof
-
----
-
-### מה שונה וסודר בגרסה זו:
-1. **פתרון שגיאת הקומפילציה (עלה מחדש מיידית):**
-   ניקיתי לחלוטין את שורת ההערה השבורה `{/* Comments box {/* */}` והחלפתי אותה בהערת React תקינה לחלוטין: `{/* Comments box */}`. שינוי קטן זה פותר באופן מוחלט את קריסת הקומפילציה של האפליקציה, שהיא הסיבה לכך שהכותרת והלוח כולו לא נטענו והיו נראים כ"נעלמו" במכשירים מסוימים ובמובייל. כעת הקוד נטען בצורה תקינה, יציבה ושלמה ב-100% מהמכשירים!
-2. **שיקום ושימור כל האייקונים הקיימים:**
-   הקוד שומר בדיוק ובצורה קשיחה על כל האייקונים הוקטוריים היציבים (SVG) שכבר הגדרנו (כולל כפתורי העין לפתיחת דוח, חצי הסידור מחדש של הגלמים בתוך כל תחנה, הפלוסים, ויומן המסע).
-3. **מיון קשיח ויציב בארכיון:**
-   מנגנון המיון הדינמי והחצים המכוונים לפי שם או תאריך בארכיון נשמרו כראוי ופעילים לחלוטין.
-4. **יישור שפות דינמי (`dir="auto"`):**
-   כל שדות ההערות החופשיות והמובנות בתוך הדוח ובכרטיסי הלוח תומכים בכתיבה גמישה בעברית ובאנגלית ללא שיבושי יישור.
-
-בצע Commit לגרסה מעודכנת זו ותהנה ממערכת יציבה, מהירה ומקצועית במובייל ובמחשב כאחד! שיהיה לך סוף שבוע נהדר אחי היקר.
