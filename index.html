@@ -62,7 +62,7 @@
     <div id="root" class="h-full flex flex-col"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
         // ==========================================
         // !!! הגדרות FIREBASE !!!
@@ -314,13 +314,16 @@
                     .filter(f => f.stationId === targetStationId && f.id !== fiberId && !f.archived)
                     .sort((a,b) => (a.order || 0) - (b.order || 0));
 
-                // Append to history log
+                // Append to history log (מגובל ל-50 תנועות אחרונות לחיסכון במקום)
+                const MAX_HISTORY_LOGS = 50;
                 const newLogEntry = {
                     stationId: targetStationId,
                     timestamp: Date.now(),
                     note: `הועבר לתחנת ${STATIONS.find(s => s.id === targetStationId)?.name || targetStationId}`
                 };
-                const updatedHistoryLog = currentFiber.historyLog ? [...currentFiber.historyLog, newLogEntry] : [newLogEntry];
+                const updatedHistoryLog = currentFiber.historyLog 
+                    ? [...currentFiber.historyLog, newLogEntry].slice(-MAX_HISTORY_LOGS) 
+                    : [newLogEntry];
 
                 const updatedFibers = { ...fibers };
                 updatedFibers[fiberId] = {
@@ -574,32 +577,40 @@
                 setSelectedFiberId(null);
             };
 
-            // Exclude archived and M&O from active tracking counts
-            const activeFibers = Object.values(fibers).filter(f => !f.archived);
+            // ==========================================
+            // אופטימיזציית ביצועים: החישובים מבוצעים ב-useMemo ונשמרים בזיכרון
+            // ==========================================
+            const activeFibers = useMemo(() => {
+                return Object.values(fibers).filter(f => !f.archived);
+            }, [fibers]);
             
-            // All items that should be logged in history (both archived and currently active but tracked)
-            const historyFibers = Object.values(fibers).filter(f => f.saveToHistory);
+            const historyFibers = useMemo(() => {
+                return Object.values(fibers).filter(f => f.saveToHistory);
+            }, [fibers]);
             
-            const monitoredFibersCount = activeFibers.filter(f => f.stationId !== "M&O").length;
+            const monitoredFibersCount = useMemo(() => {
+                return activeFibers.filter(f => f.stationId !== "M&O").length;
+            }, [activeFibers]);
+
             const selectedFiber = fibers[selectedFiberId];
 
-            // Filtered and Sorted list for the Archive / History tab
-            const processedHistoryFibers = historyFibers
-                .filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
-                .sort((a, b) => {
-                    if (archiveSortField === "name") {
-                        const nameA = (a.name || "").toLowerCase();
-                        const nameB = (b.name || "").toLowerCase();
-                        return archiveSortAsc 
-                            ? nameA.localeCompare(nameB, 'he-IL') 
-                            : nameB.localeCompare(nameA, 'he-IL');
-                    } else {
-                        // date / timestamp
-                        const valA = Number(a[archiveSortField]) || 0;
-                        const valB = Number(b[archiveSortField]) || 0;
-                        return archiveSortAsc ? valA - valB : valB - valA;
-                    }
-                });
+            const processedHistoryFibers = useMemo(() => {
+                return historyFibers
+                    .filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
+                    .sort((a, b) => {
+                        if (archiveSortField === "name") {
+                            const nameA = (a.name || "").toLowerCase();
+                            const nameB = (b.name || "").toLowerCase();
+                            return archiveSortAsc 
+                                ? nameA.localeCompare(nameB, 'he-IL') 
+                                : nameB.localeCompare(nameA, 'he-IL');
+                        } else {
+                            const valA = Number(a[archiveSortField]) || 0;
+                            const valB = Number(b[archiveSortField]) || 0;
+                            return archiveSortAsc ? valA - valB : valB - valA;
+                        }
+                    });
+            }, [historyFibers, searchHistoryQuery, archiveSortField, archiveSortAsc]);
 
             return (
                 <div class="h-full flex flex-col overflow-hidden">
@@ -622,7 +633,6 @@
                                 title="חזרה לדף הבית"
                             >
                                 <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
-                                {/*    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polygon points="2 17 12 22 22 17"/><polygon points="2 12 12 17 22 12"/></svg> */}
                                     <span class="text-sm font-extrabold tracking-wider font-sans select-none">P2F</span>
                                 </div>
                                 <div>
@@ -1423,5 +1433,3 @@
     </script>
 </body>
 </html>
-```
-eof
