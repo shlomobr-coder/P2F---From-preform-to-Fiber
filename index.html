@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl" class="notranslate">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- מניעת קפיצת חלונית התרגום של כרום בעת רענון -->
     <meta name="google" content="notranslate">
     
@@ -11,9 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="P2F">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#ffffff">
-    <link rel="apple-touch-icon" href="logo.PNG">
-    <link rel="icon" href="logo.PNG">
+    <link rel="apple-touch-icon" href="/logo.PNG">
     
     <title> P2F - from preform to fiber </title>
     
@@ -24,22 +22,16 @@
     <!-- Lucide Icons for high fidelity iconography -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- React libraries compatible with PWA mobile -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-
-    <!-- Firebase App & Database (Compat SDK for 100% Browser/Mobile Compatibility) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         body {
             font-family: 'Assistant', sans-serif;
             background-color: #f8fafc;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
         }
+        /* Custom scrollbar style for elegant horizontal layout */
         .custom-scrollbar::-webkit-scrollbar {
             height: 6px;
             width: 6px;
@@ -55,6 +47,7 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
+        /* Smooth scale up on hover for interactive elements */
         .card-hover {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -64,12 +57,12 @@
         }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col notranslate select-none">
+<body class="h-screen overflow-hidden flex flex-col notranslate">
 
     <div id="root" class="h-full flex flex-col"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useEffect, useRef } = React;
 
         // ==========================================
         // !!! הגדרות FIREBASE !!!
@@ -84,19 +77,11 @@
             appId: "1:358737766120:web:b08673220e1e5c4f720b5d"
         };
 
-        // אתחול פיירבייס ישיר ללא import דינמי תקוע
-        let db = null;
-        try {
-            if (window.firebase && !firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            if (window.firebase) {
-                db = firebase.database();
-            }
-        } catch (err) {
-            console.error("Firebase init error:", err);
-        }
+        const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
 
+        // ==========================================
+        // 10 התחנות המדויקות שלך לפי הסדר עם צבעים ייחודיים
+        // ==========================================
         const STATIONS = [
             { id: "future_cops", name: "גלמים עתידיים", color: "bg-gray-500", border: "border-gray-500", text: "text-gray-700", lightBg: "bg-gray-50" },
             { id: "mcvd", name: "MCVD", color: "bg-teal-600", border: "border-teal-600", text: "text-teal-700", lightBg: "bg-teal-50" },
@@ -110,6 +95,7 @@
             { id: "M&O", name: "Maintenance & Orders", color: "bg-yellow-600", border: "border-yellow-600", text: "text-yellow-700", lightBg: "bg-yellow-50" }
         ];
 
+        // Default offline/demo state
         const INITIAL_OFFLINE_FIBERS = {
             "demo-1": { 
                 id: "demo-1", 
@@ -132,6 +118,20 @@
                     { stationId: "future_cops", timestamp: Date.now() - 7200000, note: "נוצר והוצב בלוח" },
                     { stationId: "mcvd", timestamp: Date.now() - 3600000, note: "הועבר לתחנת MCVD" }
                 ]
+            },
+            "demo-2": { 
+                id: "demo-2", 
+                name: "גולם סיליקה MCVD #44", 
+                stationId: "mcvd", 
+                comments: "להריץ בלילה", 
+                timestamp: Date.now() - 3600000, 
+                order: 2,
+                saveToHistory: false,
+                archived: false,
+                stationData: {},
+                historyLog: [
+                    { stationId: "future_cops", timestamp: Date.now() - 3600000, note: "נוצר והוצב בלוח" }
+                ]
             }
         };
 
@@ -147,38 +147,50 @@
             const [newFiberSaveToHistory, setNewFiberSaveToHistory] = useState(true);
             const [editingStationNotes, setEditingStationNotes] = useState(null);
             const [tempStationNoteText, setTempStationNoteText] = useState("");
-            const [activeTab, setActiveTab] = useState("board"); 
+            const [activeTab, setActiveTab] = useState("board"); // "board", "list", "history"
             const [draggedFiberId, setDraggedFiberId] = useState(null);
             const [isLive, setIsLive] = useState(false);
             const [activeMenuFiberId, setActiveMenuFiberId] = useState(null); 
             
+            // Presentation mode state
             const [isPresentation, setIsPresentation] = useState(false);
+            
+            // Detail modal states
             const [selectedFiberId, setSelectedFiberId] = useState(null);
             const [modalActiveStation, setModalActiveStation] = useState("future_cops");
             const [searchHistoryQuery, setSearchHistoryQuery] = useState("");
             const [showAddNote, setShowAddNote] = useState(false);
             
-            const [archiveSortField, setArchiveSortField] = useState("timestamp"); 
-            const [archiveSortAsc, setArchiveSortAsc] = useState(false); 
+            // Sorting states for archive/history tab
+            const [archiveSortField, setArchiveSortField] = useState("timestamp"); // "name", "timestamp"
+            const [archiveSortAsc, setArchiveSortAsc] = useState(false); // default descending (newest first)
             
+            // Operator custom inputs inside modal
             const [tempOperatorName, setTempOperatorName] = useState("");
             const [tempModalNoteText, setTempModalNoteText] = useState("");
+
+            // Note editing states inside Modal
             const [editingNoteIndex, setEditingNoteIndex] = useState(null);
             const [editNoteText, setEditNoteText] = useState("");
 
             useEffect(() => {
+                // Pre-fill operator name from storage for ease of use
                 const savedOperator = localStorage.getItem('last_operator');
                 if (savedOperator) setTempOperatorName(savedOperator);
             }, [selectedFiberId]);
 
+            // Sync presentation mode with native Esc button exits
             useEffect(() => {
                 const handleFullscreenChange = () => {
                     setIsPresentation(!!document.fullscreenElement);
                 };
                 document.addEventListener("fullscreenchange", handleFullscreenChange);
-                return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+                return () => {
+                    document.removeEventListener("fullscreenchange", handleFullscreenChange);
+                };
             }, []);
 
+            // Escape hotkey fallback listener
             useEffect(() => {
                 const handleKeyDown = (e) => {
                     if (e.key === "Escape" && isPresentation) {
@@ -189,51 +201,65 @@
                 return () => window.removeEventListener("keydown", handleKeyDown);
             }, [isPresentation]);
 
+            // Reset collapsible notes form state on active station or selected fiber swap
             useEffect(() => {
                 setShowAddNote(false);
                 setEditingNoteIndex(null);
                 setEditNoteText("");
             }, [selectedFiberId, modalActiveStation]);
 
-            // חיבור רציף ויציב ל-Firebase
             useEffect(() => {
-                if (!db) {
-                    setIsLive(false);
+                if (!isFirebaseConfigured) {
+                    console.warn("Firebase config is missing. Operating in local demo mode.");
                     return;
                 }
 
-                try {
-                    const fibersRef = db.ref('fibers');
-                    fibersRef.on('value', (snapshot) => {
-                        const data = snapshot.val();
-                        if (data) setFibers(data);
-                        setIsLive(true);
-                    }, (err) => {
-                        console.error("Firebase Fibers Error:", err);
-                        setIsLive(false);
-                    });
+                const runFirebase = async () => {
+                    try {
+                        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js");
+                        const { getDatabase, ref, onValue } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js");
 
-                    const notesRef = db.ref('stationNotes');
-                    notesRef.on('value', (snapshot) => {
-                        const data = snapshot.val();
-                        if (data) setStationNotes(data);
-                    });
-                } catch (error) {
-                    console.error("Firebase connection error: ", error);
-                    setIsLive(false);
-                }
+                        const app = initializeApp(firebaseConfig);
+                        const db = getDatabase(app);
+                        setIsLive(true);
+
+                        // Listen to active and archived fibers
+                        const fibersRef = ref(db, 'fibers');
+                        onValue(fibersRef, (snapshot) => {
+                            const data = snapshot.val();
+                            setFibers(data || {});
+                        });
+
+                        // Listen to station guidelines/notes
+                        const notesRef = ref(db, 'stationNotes');
+                        onValue(notesRef, (snapshot) => {
+                            const data = snapshot.val();
+                            setStationNotes(data || {});
+                        });
+                    } catch (error) {
+                        console.error("Firebase connection failed: ", error);
+                        setIsLive(false);
+                    }
+                };
+
+                runFirebase();
             }, []);
 
             const updateDatabase = async (newFibers, newStationNotes = null) => {
                 if (newFibers) setFibers(newFibers);
                 if (newStationNotes) setStationNotes(newStationNotes);
 
-                if (db && isLive) {
-                    try {
-                        if (newFibers) await db.ref('fibers').set(newFibers);
-                        if (newStationNotes) await db.ref('stationNotes').set(newStationNotes);
-                    } catch (e) {
-                        console.error("Error saving to Firebase:", e);
+                if (isLive && isFirebaseConfigured) {
+                    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js");
+                    const { getDatabase, ref, set: dbSet } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js");
+                    const app = initializeApp(firebaseConfig);
+                    const db = getDatabase(app);
+
+                    if (newFibers) {
+                        await dbSet(ref(db, 'fibers'), newFibers);
+                    }
+                    if (newStationNotes) {
+                        await dbSet(ref(db, 'stationNotes'), newStationNotes);
                     }
                 } else {
                     localStorage.setItem('local_fibers', JSON.stringify(newFibers || fibers));
@@ -241,6 +267,7 @@
                 }
             };
 
+            // Local fallback backup
             useEffect(() => {
                 if (!isLive) {
                     const savedFibers = localStorage.getItem('local_fibers');
@@ -287,15 +314,13 @@
                     .filter(f => f.stationId === targetStationId && f.id !== fiberId && !f.archived)
                     .sort((a,b) => (a.order || 0) - (b.order || 0));
 
-                const MAX_HISTORY_LOGS = 50;
+                // Append to history log
                 const newLogEntry = {
                     stationId: targetStationId,
                     timestamp: Date.now(),
                     note: `הועבר לתחנת ${STATIONS.find(s => s.id === targetStationId)?.name || targetStationId}`
                 };
-                const updatedHistoryLog = currentFiber.historyLog 
-                    ? [...currentFiber.historyLog, newLogEntry].slice(-MAX_HISTORY_LOGS) 
-                    : [newLogEntry];
+                const updatedHistoryLog = currentFiber.historyLog ? [...currentFiber.historyLog, newLogEntry] : [newLogEntry];
 
                 const updatedFibers = { ...fibers };
                 updatedFibers[fiberId] = {
@@ -326,11 +351,13 @@
                 const fiber = fibers[fiberId];
                 if (!fiber) return;
 
+                // Load existing logs (handling legacy strings gracefully)
                 let existingNotes = [];
                 const rawData = fiber.stationData ? fiber.stationData[stationId] : null;
                 if (Array.isArray(rawData)) {
                     existingNotes = rawData;
                 } else if (typeof rawData === 'string' && rawData.trim() !== '') {
+                    // Legacy string fallback
                     existingNotes = [{ operator: "הערה כללית", timestamp: fiber.timestamp, text: rawData }];
                 }
 
@@ -520,7 +547,7 @@
                     setArchiveSortAsc(!archiveSortAsc);
                 } else {
                     setArchiveSortField(field);
-                    setArchiveSortAsc(field === "name" ? true : false);
+                    setArchiveSortAsc(field === "name" ? true : false); // default descending (newest first)
                 }
             };
 
@@ -547,56 +574,55 @@
                 setSelectedFiberId(null);
             };
 
-            const activeFibers = useMemo(() => {
-                return Object.values(fibers).filter(f => !f.archived);
-            }, [fibers]);
+            // Exclude archived and M&O from active tracking counts
+            const activeFibers = Object.values(fibers).filter(f => !f.archived);
             
-            const historyFibers = useMemo(() => {
-                return Object.values(fibers).filter(f => f.saveToHistory);
-            }, [fibers]);
+            // All items that should be logged in history (both archived and currently active but tracked)
+            const historyFibers = Object.values(fibers).filter(f => f.saveToHistory);
             
-            const monitoredFibersCount = useMemo(() => {
-                return activeFibers.filter(f => f.stationId !== "M&O").length;
-            }, [activeFibers]);
-
+            const monitoredFibersCount = activeFibers.filter(f => f.stationId !== "M&O").length;
             const selectedFiber = fibers[selectedFiberId];
 
-            const processedHistoryFibers = useMemo(() => {
-                return historyFibers
-                    .filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
-                    .sort((a, b) => {
-                        if (archiveSortField === "name") {
-                            const nameA = (a.name || "").toLowerCase();
-                            const nameB = (b.name || "").toLowerCase();
-                            return archiveSortAsc 
-                                ? nameA.localeCompare(nameB, 'he-IL') 
-                                : nameB.localeCompare(nameA, 'he-IL');
-                        } else {
-                            const valA = Number(a[archiveSortField]) || 0;
-                            const valB = Number(b[archiveSortField]) || 0;
-                            return archiveSortAsc ? valA - valB : valB - valA;
-                        }
-                    });
-            }, [historyFibers, searchHistoryQuery, archiveSortField, archiveSortAsc]);
+            // Filtered and Sorted list for the Archive / History tab
+            const processedHistoryFibers = historyFibers
+                .filter(f => f.name.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
+                .sort((a, b) => {
+                    if (archiveSortField === "name") {
+                        const nameA = (a.name || "").toLowerCase();
+                        const nameB = (b.name || "").toLowerCase();
+                        return archiveSortAsc 
+                            ? nameA.localeCompare(nameB, 'he-IL') 
+                            : nameB.localeCompare(nameA, 'he-IL');
+                    } else {
+                        // date / timestamp
+                        const valA = Number(a[archiveSortField]) || 0;
+                        const valB = Number(b[archiveSortField]) || 0;
+                        return archiveSortAsc ? valA - valB : valB - valA;
+                    }
+                });
 
             return (
                 <div class="h-full flex flex-col overflow-hidden">
                     
+                    {/* Offline demo warning banner */}
                     {!isLive && (
                         <div class="bg-amber-500 text-white px-4 py-2 text-sm text-center font-semibold shadow-inner flex items-center justify-center gap-2 shrink-0">
                             <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
-                            <span>מצב הדגמה מקומי (לא מקוון). נתונים נשמרים במכשיר זה בלבד.</span>
+                            <span>מצב הדגמה מקומי (מצב לא מקוון). האתר שומר שינויים במכשיר הנוכחי בלבד. יש להזין את מפתח ה-Firebase בקוד להפעלת סנכרון חי!</span>
                         </div>
                     )}
 
+                    {/* Header completely hidden in Presentation Mode */}
                     {!isPresentation && (
                         <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
+                            {/* כותרת האתר - כעת מקושרת ומאפסת חזרה למסך הראשי בלחיצה */}
                             <div 
                                 onClick={handleResetToHome}
                                 class="flex items-center gap-3 cursor-pointer select-none hover:opacity-80 transition active:scale-95 duration-150"
                                 title="חזרה לדף הבית"
                             >
                                 <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
+                                {/*    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polygon points="2 17 12 22 22 17"/><polygon points="2 12 12 17 22 12"/></svg> */}
                                     <span class="text-sm font-extrabold tracking-wider font-sans select-none">P2F</span>
                                 </div>
                                 <div>
@@ -605,7 +631,9 @@
                                 </div>
                             </div>
 
+                            {/* Navigation Tabs, Presentation Mode and Global Metrics */}
                             <div class="flex flex-wrap items-center gap-4">
+                                {/* Toggle Presentation Button */}
                                 <button 
                                     onClick={togglePresentation}
                                     class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition shadow-sm hover:shadow text-xs font-semibold"
@@ -643,6 +671,7 @@
                         </header>
                     )}
 
+                    {/* Mobile Switcher for Board layout */}
                     {(activeTab === "board" || activeTab === "list") && !isPresentation && (
                         <div class="md:hidden flex bg-white border-b border-slate-200 shrink-0">
                             <button 
@@ -660,7 +689,10 @@
                         </div>
                     )}
 
+                    {/* MAIN GRAPHICAL BOARD VIEW */}
                     <main class={`flex-1 overflow-y-auto relative bg-slate-50 ${isPresentation ? "p-4" : ""}`}>
+                        
+                        {/* Floating Exit Presentation Mode button in top-left corner */}
                         {isPresentation && (
                             <button 
                                 onClick={togglePresentation}
@@ -673,6 +705,7 @@
 
                         {activeTab === "board" && (
                             <div class={`flex flex-col gap-6 ${isPresentation ? "p-0 h-full" : "p-6"}`}>
+                                {/* Creation Form Bar (Only shown outside presentation mode) */}
                                 {!isPresentation && (
                                     <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
                                         <form onSubmit={handleAddFiber} class="flex flex-wrap items-center gap-4">
@@ -730,6 +763,7 @@
                                                 onDrop={(e) => handleDropOnStation(e, station.id)}
                                                 class="w-full bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col h-fit overflow-hidden"
                                             >
+                                                {/* Station Header */}
                                                 <div class={`${station.color} p-3 text-white flex items-center justify-between shrink-0 shadow-sm`}>
                                                     <div class="flex items-center gap-2">
                                                         <span class="w-5 h-5 rounded-full bg-white/20 text-xs flex items-center justify-center font-bold">
@@ -747,6 +781,7 @@
                                                     )}
                                                 </div>
 
+                                                {/* Guidelines */}
                                                 {isEditingThis && !isPresentation ? (
                                                     <div class="bg-yellow-50 border-b border-yellow-200 p-2 shrink-0 flex flex-col gap-2">
                                                         <textarea 
@@ -770,6 +805,7 @@
                                                     )
                                                 )}
 
+                                                {/* Fiber Cards list with max-height and inner scroll */}
                                                 <div class={`p-3 space-y-3 bg-slate-50/50 overflow-y-auto custom-scrollbar ${isPresentation ? "max-h-[500px]" : "max-h-[350px]"}`}>
                                                     {stationFibers.length === 0 ? (
                                                         <div class="min-h-[90px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-3 text-center">
@@ -795,6 +831,7 @@
                                                                     
                                                                     {!isPresentation && (
                                                                         <div class="flex items-center gap-1 shrink-0">
+                                                                            {/* Quick Move Priority buttons */}
                                                                             <div class="flex flex-col">
                                                                                 <button 
                                                                                     type="button"
@@ -814,6 +851,7 @@
                                                                                 </button>
                                                                             </div>
 
+                                                                            {/* Info clicker for mobile / tablet details modal */}
                                                                             <button 
                                                                                 onClick={() => setSelectedFiberId(fiber.id)}
                                                                                 class="p-1 text-slate-400 hover:text-blue-600 rounded bg-slate-100/50 hover:bg-slate-100 flex items-center justify-center"
@@ -854,6 +892,7 @@
                                                                     )}
                                                                 </div>
 
+                                                                {/* Comments box */}
                                                                 <div class="mt-2 border-t border-slate-100 pt-1.5 flex items-start gap-1.5">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400 shrink-0 mt-1"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                                                     <textarea 
@@ -898,8 +937,10 @@
                             </div>
                         )}
 
+                        {/* Mobile Optimized View */}
                         {activeTab === "list" && (
                             <div class="p-4 space-y-4 md:hidden">
+                                {/* Creation Form Bar inside list tab */}
                                 <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
                                     <form onSubmit={handleAddFiber} class="flex flex-wrap items-center gap-4">
                                         <span class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
@@ -1037,6 +1078,7 @@
                             </div>
                         )}
 
+                        {/* ARCHIVE AND HISTORY TAB SCREEN */}
                         {activeTab === "history" && (
                             <div class="p-6 max-w-6xl mx-auto flex flex-col gap-4">
                                 <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-center">
@@ -1059,7 +1101,7 @@
                                 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
                                     <table class="w-full text-right border-collapse">
                                         <thead>
-                                            <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold select-none">
+                                            <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold select-none border-b border-slate-200">
                                                 <th 
                                                     class="p-4 cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition"
                                                     onClick={() => handleArchiveSort("name")}
@@ -1127,9 +1169,12 @@
                         )}
                     </main>
 
+                    {/* FULL FIBER DIARY DETAILED TRAVELER MODAL */}
                     {selectedFiber && (
                         <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div class="bg-white w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                
+                                {/* Modal Header */}
                                 <div class="bg-slate-900 text-white p-5 flex items-center justify-between shrink-0">
                                     <div class="flex items-center gap-3">
                                         <div class="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white">
@@ -1151,7 +1196,10 @@
                                     </button>
                                 </div>
 
+                                {/* Modal Body Container */}
                                 <div class="flex-1 flex overflow-hidden">
+                                    
+                                    {/* Sidebar: Navigation of Stations */}
                                     <div class="w-1/3 border-l border-slate-200 bg-slate-50 overflow-y-auto custom-scrollbar p-3 space-y-2 shrink-0">
                                         <div class="text-[10px] font-bold text-slate-400 px-2 pb-1 uppercase tracking-wider font-sans">הערות עפ"י תחנות</div>
                                         {STATIONS.map((station) => {
@@ -1176,7 +1224,10 @@
                                         })}
                                     </div>
 
+                                    {/* Center Pane: Active Station Details & Audit Log Journey Timeline */}
                                     <div class="flex-1 flex flex-col overflow-hidden p-6">
+                                        
+                                        {/* Station Data Input Panel */}
                                         <div class="flex-1 flex flex-col overflow-hidden pb-6">
                                             <div class="flex items-center gap-2 mb-3">
                                                 <span class={`w-3 h-3 rounded-full ${STATIONS.find(s => s.id === modalActiveStation)?.color}`}></span>
@@ -1185,6 +1236,7 @@
                                                 </h4>
                                             </div>
 
+                                            {/* Note timeline for current station */}
                                             <div class="flex-1 overflow-y-auto mb-4 border border-slate-100 p-3 rounded-xl bg-slate-50/50 custom-scrollbar space-y-3">
                                                 {(() => {
                                                     const rawData = selectedFiber.stationData ? selectedFiber.stationData[modalActiveStation] : null;
@@ -1192,6 +1244,7 @@
                                                     if (Array.isArray(rawData)) {
                                                         entries = rawData;
                                                     } else if (typeof rawData === 'string' && rawData.trim() !== '') {
+                                                        // Legacy string fallback
                                                         entries = [{ operator: "הערה כללית", timestamp: selectedFiber.timestamp, text: rawData }];
                                                     }
 
@@ -1214,6 +1267,7 @@
                                                                             class="text-slate-400 hover:text-blue-600 transition p-0.5 rounded hover:bg-slate-50 flex items-center justify-center"
                                                                             title="ערוך הערה"
                                                                         >
+                                                                            {/* SVG עיפרון יציב לחלוטין */}
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                                                         </button>
                                                                     )}
@@ -1254,6 +1308,7 @@
                                                 })()}
                                             </div>
 
+                                            {/* Add Signed entry box (Collapsible under 'showAddNote' state) */}
                                             {!selectedFiber.archived && (
                                                 <div class="shrink-0">
                                                     {!showAddNote ? (
@@ -1312,6 +1367,7 @@
                                             )}
                                         </div>
 
+                                        {/* Journey Audit Log Timeline Footer */}
                                         <div class="h-1/4 border-t border-slate-100 pt-4 flex flex-col overflow-hidden shrink-0">
                                             <h5 class="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1338,6 +1394,7 @@
 
                                 </div>
 
+                                {/* Modal Actions Footer */}
                                 <div class="bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-between items-center shrink-0">
                                     <button 
                                         onClick={() => handleDeleteOrArchiveFiber(selectedFiber.id)}
@@ -1366,3 +1423,5 @@
     </script>
 </body>
 </html>
+```
+eof
