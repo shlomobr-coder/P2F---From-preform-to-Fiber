@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl" class="notranslate">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <!-- מניעת קפיצת חלונית התרגום של כרום בעת רענון -->
     <meta name="google" content="notranslate">
     
@@ -11,7 +11,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="P2F">
     <meta name="mobile-web-app-capable" content="yes">
-    <link rel="apple-touch-icon" href="/logo.PNG">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="apple-touch-icon" href="logo.PNG">
+    <link rel="icon" href="logo.PNG">
     
     <title> P2F - from preform to fiber </title>
     
@@ -22,14 +24,17 @@
     <!-- Lucide Icons for high fidelity iconography -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- React libraries without cross-origin blocks for PWA mobile compatibility -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
     <style>
         body {
             font-family: 'Assistant', sans-serif;
             background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
         /* Custom scrollbar style for elegant horizontal layout */
         .custom-scrollbar::-webkit-scrollbar {
@@ -57,7 +62,7 @@
         }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col notranslate">
+<body class="h-screen overflow-hidden flex flex-col notranslate select-none">
 
     <div id="root" class="h-full flex flex-col"></div>
 
