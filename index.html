@@ -156,7 +156,6 @@
             const [isPresentation, setIsPresentation] = useState(false);
             
             // Floating windows state - ניהול חלונות צפים מרובים
-            // כל חלון יכיל: { id: fiberId, x: number, y: number, zIndex: number, activeStation: string, showAddNote: boolean, editingNoteIndex: number, editNoteText: string }
             const [openWindows, setOpenWindows] = useState([]);
             const [maxZIndex, setMaxZIndex] = useState(100);
             
@@ -166,7 +165,7 @@
             const [archiveSortField, setArchiveSortField] = useState("timestamp"); // "name", "timestamp"
             const [archiveSortAsc, setArchiveSortAsc] = useState(false); // default descending (newest first)
             
-            // Operator custom inputs inside modal
+            // Operator custom inputs & Note edits inside windows
             const [tempOperatorName, setTempOperatorName] = useState("");
             const [tempModalNoteText, setTempModalNoteText] = useState({});
 
@@ -178,11 +177,9 @@
                     setMaxZIndex(newZ);
 
                     if (existing) {
-                        // אם החלון כבר פתוח, נעלה אותו לקדמת המסך
                         return prev.map(w => w.id === fiberId ? { ...w, zIndex: newZ } : w);
                     }
 
-                    // חישוב מיקום מדורג ראשוני
                     const offset = (prev.length % 6) * 30;
                     const newWin = {
                         id: fiberId,
@@ -192,7 +189,10 @@
                         activeStation: "future_cops",
                         showAddNote: false,
                         editingNoteIndex: null,
-                        editNoteText: ""
+                        editNoteText: "",
+                        editOperatorName: "",
+                        isEditingFiberName: false,
+                        tempFiberName: fibers[fiberId]?.name || ""
                     };
                     return [...prev, newWin];
                 });
@@ -217,14 +217,14 @@
                     activeStation: stationId,
                     showAddNote: false,
                     editingNoteIndex: null,
-                    editNoteText: ""
+                    editNoteText: "",
+                    editOperatorName: ""
                 } : w));
             };
 
             // גרירת חלון צף
             const handleStartDragWindow = (e, fiberId) => {
-                // רק אם בלחיצה על כותרת החלון (לא על כפתורים)
-                if (e.target.closest('button')) return;
+                if (e.target.closest('button') || e.target.closest('input')) return;
                 
                 handleBringToFront(fiberId);
                 const winObj = openWindows.find(w => w.id === fiberId);
@@ -264,7 +264,7 @@
             useEffect(() => {
                 const savedOperator = localStorage.getItem('last_operator');
                 if (savedOperator) setTempOperatorName(savedOperator);
-            }, [openWindows]);
+            }, [openWindows.length]);
 
             // Sync presentation mode with native Esc button exits
             useEffect(() => {
@@ -384,6 +384,19 @@
                 setNewFiberName("");
             };
 
+            // עדכון שם הגלם ישירות
+            const handleRenameFiber = (fiberId, newName) => {
+                if (!fibers[fiberId] || !newName.trim()) return;
+                const updatedFibers = {
+                    ...fibers,
+                    [fiberId]: {
+                        ...fibers[fiberId],
+                        name: newName.trim()
+                    }
+                };
+                updateDatabase(updatedFibers);
+            };
+
             const handleMoveFiber = (fiberId, targetStationId) => {
                 if (!fibers[fiberId]) return;
                 
@@ -394,7 +407,6 @@
                     .filter(f => f.stationId === targetStationId && f.id !== fiberId && !f.archived)
                     .sort((a,b) => (a.order || 0) - (b.order || 0));
 
-                // Append to history log
                 const newLogEntry = {
                     stationId: targetStationId,
                     timestamp: Date.now(),
@@ -461,7 +473,8 @@
                 localStorage.setItem('last_operator', tempOperatorName.trim());
             };
 
-            const handleSaveEditedNote = (fiberId, stationId, noteIndex, editNoteText) => {
+            // שמירת עריכת הערה כולל אפשרות לערוך את שם המפעיל!
+            const handleSaveEditedNote = (fiberId, stationId, noteIndex, editNoteText, editOperatorName) => {
                 if (!editNoteText || !editNoteText.trim()) return;
                 const fiber = fibers[fiberId];
                 if (!fiber) return;
@@ -476,6 +489,9 @@
 
                 if (existingNotes[noteIndex]) {
                     existingNotes[noteIndex].text = editNoteText.trim();
+                    if (editOperatorName && editOperatorName.trim()) {
+                        existingNotes[noteIndex].operator = editOperatorName.trim();
+                    }
                 }
 
                 const updatedFibers = {
@@ -1261,24 +1277,68 @@
                                 }}
                                 class="w-[95vw] sm:w-[650px] md:w-[750px] h-[80vh] max-h-[650px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-300 transition-shadow"
                             >
-                                {/* Draggable Window Header */}
+                                {/* Draggable Window Header with Editable Fiber Name */}
                                 <div 
                                     onMouseDown={(e) => handleStartDragWindow(e, win.id)}
                                     onTouchStart={(e) => handleStartDragWindow(e, win.id)}
                                     class="bg-slate-900 text-white p-3 sm:p-4 flex items-center justify-between shrink-0 cursor-move select-none"
                                 >
-                                    <div class="flex items-center gap-2.5">
+                                    <div class="flex items-center gap-2.5 min-w-0 flex-1">
                                         <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                                         </div>
-                                        <div class="min-w-0">
-                                            <h3 class="text-sm font-bold truncate">{fiber.name}</h3>
-                                            <p class="text-[10px] text-slate-400 truncate">
-                                                תאריך יצירה: {new Date(fiber.timestamp).toLocaleDateString('he-IL')} 
-                                                {fiber.archived && ' | ארכיון'}
-                                            </p>
-                                        </div>
+
+                                        {win.isEditingFiberName ? (
+                                            <div class="flex items-center gap-1 flex-1 max-w-sm">
+                                                <input 
+                                                    type="text"
+                                                    dir="auto"
+                                                    value={win.tempFiberName}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, tempFiberName: val } : w));
+                                                    }}
+                                                    class="bg-slate-800 text-white text-xs px-2 py-1 rounded border border-blue-400 focus:outline-none w-full font-bold"
+                                                    autoFocus
+                                                />
+                                                <button 
+                                                    onClick={() => {
+                                                        handleRenameFiber(fiber.id, win.tempFiberName);
+                                                        setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, isEditingFiberName: false } : w));
+                                                    }}
+                                                    class="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition text-xs font-bold"
+                                                    title="שמור שם חדש"
+                                                >
+                                                    ✓
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, isEditingFiberName: false, tempFiberName: fiber.name } : w));
+                                                    }}
+                                                    class="p-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition text-xs"
+                                                    title="ביטול"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div class="min-w-0 flex-1 flex items-center gap-2">
+                                                <h3 class="text-sm font-bold truncate">{fiber.name}</h3>
+                                                {!fiber.archived && (
+                                                    <button 
+                                                        onClick={() => {
+                                                            setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, isEditingFiberName: true, tempFiberName: fiber.name } : w));
+                                                        }}
+                                                        class="text-slate-400 hover:text-blue-400 transition p-0.5 rounded"
+                                                        title="ערוך שם גלם"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
+
                                     <div class="flex items-center gap-1 shrink-0">
                                         <button 
                                             onClick={() => handleCloseWindow(win.id)}
@@ -1351,18 +1411,37 @@
                                                                     {win.editingNoteIndex !== idx && !fiber.archived && (
                                                                         <button 
                                                                             onClick={() => {
-                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: idx, editNoteText: entry.text } : w));
+                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { 
+                                                                                    ...w, 
+                                                                                    editingNoteIndex: idx, 
+                                                                                    editNoteText: entry.text,
+                                                                                    editOperatorName: entry.operator || tempOperatorName 
+                                                                                } : w));
                                                                             }}
                                                                             class="text-slate-400 hover:text-blue-600 transition p-0.5 rounded flex items-center justify-center"
-                                                                            title="ערוך הערה"
+                                                                            title="ערוך הערה ומפעיל"
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                                                         </button>
                                                                     )}
                                                                 </div>
                                                             </div>
+
                                                             {win.editingNoteIndex === idx ? (
                                                                 <div class="space-y-1.5 mt-1">
+                                                                    <div class="flex items-center gap-1">
+                                                                        <span class="text-[9px] text-slate-500 font-bold shrink-0">מפעיל:</span>
+                                                                        <input 
+                                                                            type="text"
+                                                                            dir="auto"
+                                                                            value={win.editOperatorName}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value;
+                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editOperatorName: val } : w));
+                                                                            }}
+                                                                            class="w-full border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                                                        />
+                                                                    </div>
                                                                     <textarea 
                                                                         dir="auto"
                                                                         value={win.editNoteText}
@@ -1376,7 +1455,7 @@
                                                                     <div class="flex justify-end gap-1">
                                                                         <button 
                                                                             onClick={() => {
-                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: null, editNoteText: "" } : w));
+                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: null, editNoteText: "", editOperatorName: "" } : w));
                                                                             }} 
                                                                             class="px-2 py-0.5 text-[9px] bg-slate-150 text-slate-700 rounded font-semibold"
                                                                         >
@@ -1384,12 +1463,12 @@
                                                                         </button>
                                                                         <button 
                                                                             onClick={() => {
-                                                                                handleSaveEditedNote(fiber.id, win.activeStation, idx, win.editNoteText);
-                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: null, editNoteText: "" } : w));
+                                                                                handleSaveEditedNote(fiber.id, win.activeStation, idx, win.editNoteText, win.editOperatorName);
+                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: null, editNoteText: "", editOperatorName: "" } : w));
                                                                             }} 
                                                                             class="px-2 py-0.5 text-[9px] bg-blue-600 text-white rounded font-semibold hover:bg-blue-700"
                                                                         >
-                                                                            שמור
+                                                                            שמור שינויים
                                                                         </button>
                                                                     </div>
                                                                 </div>
@@ -1424,7 +1503,7 @@
                                                                     placeholder="שם מפעיל..."
                                                                     value={tempOperatorName}
                                                                     onChange={(e) => setTempOperatorName(e.target.value)}
-                                                                    class="w-1/3 px-2 py-1 text-[11px] bg-white border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-none font-bold"
+                                                                    class="w-1/2 px-2 py-1 text-[11px] bg-white border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-none font-bold"
                                                                 />
                                                                 <span class="text-[10px] text-slate-400 self-center font-semibold">
                                                                     תאריך: {new Date().toLocaleDateString('he-IL')} (היום)
