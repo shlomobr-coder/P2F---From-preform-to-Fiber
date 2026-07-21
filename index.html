@@ -155,7 +155,8 @@
             // Presentation mode state
             const [isPresentation, setIsPresentation] = useState(false);
             
-            // Detail modal states
+            // Detail modal states - תמיכה בריבוי דוחות פתוחים
+            const [openFiberIds, setOpenFiberIds] = useState([]);
             const [selectedFiberId, setSelectedFiberId] = useState(null);
             const [modalActiveStation, setModalActiveStation] = useState("future_cops");
             const [searchHistoryQuery, setSearchHistoryQuery] = useState("");
@@ -172,6 +173,28 @@
             // Note editing states inside Modal
             const [editingNoteIndex, setEditingNoteIndex] = useState(null);
             const [editNoteText, setEditNoteText] = useState("");
+
+            // פונקציה לפתיחת דוח גלם (הוספה לרשימת הדוחות הפתוחים והפיכתו לפעיל)
+            const handleOpenFiber = (fiberId) => {
+                setOpenFiberIds(prev => prev.includes(fiberId) ? prev : [...prev, fiberId]);
+                setSelectedFiberId(fiberId);
+            };
+
+            // סגירת לשונית דוח ספציפית
+            const handleCloseFiberTab = (fiberIdToClose, e) => {
+                if (e) e.stopPropagation();
+                const remaining = openFiberIds.filter(id => id !== fiberIdToClose);
+                setOpenFiberIds(remaining);
+                if (selectedFiberId === fiberIdToClose) {
+                    setSelectedFiberId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
+                }
+            };
+
+            // סגירת כל הדוחות הפתוחים
+            const handleCloseAllFibers = () => {
+                setOpenFiberIds([]);
+                setSelectedFiberId(null);
+            };
 
             useEffect(() => {
                 // Pre-fill operator name from storage for ease of use
@@ -445,7 +468,7 @@
                     delete updatedFibers[fiberId];
                 }
                 updateDatabase(updatedFibers);
-                if (selectedFiberId === fiberId) setSelectedFiberId(null);
+                handleCloseFiberTab(fiberId);
             };
 
             const handleMovePriority = (fiberId, direction) => {
@@ -571,7 +594,7 @@
 
             const handleResetToHome = () => {
                 setActiveTab("board");
-                setSelectedFiberId(null);
+                handleCloseAllFibers();
             };
 
             // Exclude archived and M&O from active tracking counts
@@ -622,7 +645,6 @@
                                 title="חזרה לדף הבית"
                             >
                                 <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
-                                {/*    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polygon points="2 17 12 22 22 17"/><polygon points="2 12 12 17 22 12"/></svg> */}
                                     <span class="text-sm font-extrabold tracking-wider font-sans select-none">P2F</span>
                                 </div>
                                 <div>
@@ -819,9 +841,9 @@
                                                                 onDragStart={(e) => handleDragStart(e, fiber.id)}
                                                                 onDragOver={handleDragOver}
                                                                 onDrop={(e) => handleDropOnCard(e, fiber.id, station.id)}
-                                                                onDoubleClick={() => setSelectedFiberId(fiber.id)}
+                                                                onDoubleClick={() => handleOpenFiber(fiber.id)}
                                                                 class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm card-hover relative group cursor-grab active:cursor-grabbing select-none"
-                                                                title="לחץ פעמיים - לא תתחרט!"
+                                                                title="לחץ פעמיים לפתיחת תיק גלם"
                                                             >
                                                                 <div class="flex items-start justify-between gap-1.5 mb-1.5">
                                                                     <div class="flex items-start gap-1.5 min-w-0 mt-0.5">
@@ -853,7 +875,7 @@
 
                                                                             {/* Info clicker for mobile / tablet details modal */}
                                                                             <button 
-                                                                                onClick={() => setSelectedFiberId(fiber.id)}
+                                                                                onClick={() => handleOpenFiber(fiber.id)}
                                                                                 class="p-1 text-slate-400 hover:text-blue-600 rounded bg-slate-100/50 hover:bg-slate-100 flex items-center justify-center"
                                                                                 title="צפה בתיק הגלם"
                                                                             >
@@ -1007,7 +1029,7 @@
                                                             
                                                             <div class="flex items-center gap-2 shrink-0">
                                                                 <button 
-                                                                    onClick={() => setSelectedFiberId(fiber.id)}
+                                                                    onClick={() => handleOpenFiber(fiber.id)}
                                                                     class="p-1 bg-slate-100 border border-slate-200 rounded text-slate-600 flex items-center justify-center"
                                                                 >
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -1149,7 +1171,7 @@
                                                     <td class="p-4 text-xs text-slate-600 truncate max-w-xs">{fiber.comments || '-'}</td>
                                                     <td class="p-4 text-left">
                                                         <button 
-                                                            onClick={() => setSelectedFiberId(fiber.id)}
+                                                            onClick={() => handleOpenFiber(fiber.id)}
                                                             class="text-blue-600 hover:text-blue-800 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
                                                         >
                                                             צפה בתיק גלם
@@ -1169,11 +1191,37 @@
                         )}
                     </main>
 
-                    {/* FULL FIBER DIARY DETAILED TRAVELER MODAL */}
-                    {selectedFiber && (
+                    {/* FULL FIBER DIARY DETAILED TRAVELER MODAL WITH MULTI-TAB SUPPORT */}
+                    {openFiberIds.length > 0 && selectedFiber && (
                         <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div class="bg-white w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                                 
+                                {/* Multi-Fiber Tab Header Strip */}
+                                <div class="bg-slate-950 text-white px-4 pt-3 flex items-center gap-2 overflow-x-auto custom-scrollbar border-b border-slate-800 shrink-0">
+                                    <span class="text-[10px] font-bold text-slate-400 pl-2 shrink-0 select-none">דוחות פתוחים:</span>
+                                    {openFiberIds.map(id => {
+                                        const fItem = fibers[id];
+                                        if (!fItem) return null;
+                                        const isTabActive = id === selectedFiberId;
+                                        return (
+                                            <div 
+                                                key={id}
+                                                onClick={() => setSelectedFiberId(id)}
+                                                class={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-bold cursor-pointer transition select-none shrink-0 ${isTabActive ? 'bg-slate-900 text-blue-400 border-t-2 border-blue-500' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+                                            >
+                                                <span class="truncate max-w-[130px]">{fItem.name}</span>
+                                                <button 
+                                                    onClick={(e) => handleCloseFiberTab(id, e)}
+                                                    class="hover:text-red-400 hover:bg-slate-700/50 p-0.5 rounded transition text-[10px] w-4 h-4 flex items-center justify-center"
+                                                    title="סגור דוח זה"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
                                 {/* Modal Header */}
                                 <div class="bg-slate-900 text-white p-5 flex items-center justify-between shrink-0">
                                     <div class="flex items-center gap-3">
@@ -1189,8 +1237,9 @@
                                         </div>
                                     </div>
                                     <button 
-                                        onClick={() => setSelectedFiberId(null)}
+                                        onClick={handleCloseAllFibers}
                                         class="text-slate-400 hover:text-white p-1 rounded-lg transition flex items-center justify-center"
+                                        title="סגור את כל הדוחות"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                                     </button>
@@ -1403,10 +1452,10 @@
                                         {selectedFiber.archived ? 'מחק לצמיתות מהארכיון' : (selectedFiber.saveToHistory !== false ? 'ארכב והעבר להיסטוריה' : 'מחק גלם לחלוטין')}
                                     </button>
                                     <button 
-                                        onClick={() => setSelectedFiberId(null)}
+                                        onClick={() => handleCloseFiberTab(selectedFiber.id)}
                                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2 rounded-lg transition"
                                     >
-                                        סגור דוח גלם
+                                        סגור דוח גלם זה
                                     </button>
                                 </div>
 
@@ -1423,5 +1472,3 @@
     </script>
 </body>
 </html>
-```
-eof
