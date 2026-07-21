@@ -155,12 +155,12 @@
             // Presentation mode state
             const [isPresentation, setIsPresentation] = useState(false);
             
-            // Detail modal states - תמיכה בריבוי דוחות פתוחים
-            const [openFiberIds, setOpenFiberIds] = useState([]);
-            const [selectedFiberId, setSelectedFiberId] = useState(null);
-            const [modalActiveStation, setModalActiveStation] = useState("future_cops");
+            // Floating windows state - ניהול חלונות צפים מרובים
+            // כל חלון יכיל: { id: fiberId, x: number, y: number, zIndex: number, activeStation: string, showAddNote: boolean, editingNoteIndex: number, editNoteText: string }
+            const [openWindows, setOpenWindows] = useState([]);
+            const [maxZIndex, setMaxZIndex] = useState(100);
+            
             const [searchHistoryQuery, setSearchHistoryQuery] = useState("");
-            const [showAddNote, setShowAddNote] = useState(false);
             
             // Sorting states for archive/history tab
             const [archiveSortField, setArchiveSortField] = useState("timestamp"); // "name", "timestamp"
@@ -168,39 +168,103 @@
             
             // Operator custom inputs inside modal
             const [tempOperatorName, setTempOperatorName] = useState("");
-            const [tempModalNoteText, setTempModalNoteText] = useState("");
+            const [tempModalNoteText, setTempModalNoteText] = useState({});
 
-            // Note editing states inside Modal
-            const [editingNoteIndex, setEditingNoteIndex] = useState(null);
-            const [editNoteText, setEditNoteText] = useState("");
+            // פתיחת חלון צף חדש עבור גלם
+            const handleOpenFiberWindow = (fiberId) => {
+                setOpenWindows(prev => {
+                    const existing = prev.find(w => w.id === fiberId);
+                    const newZ = maxZIndex + 1;
+                    setMaxZIndex(newZ);
 
-            // פונקציה לפתיחת דוח גלם (הוספה לרשימת הדוחות הפתוחים והפיכתו לפעיל)
-            const handleOpenFiber = (fiberId) => {
-                setOpenFiberIds(prev => prev.includes(fiberId) ? prev : [...prev, fiberId]);
-                setSelectedFiberId(fiberId);
+                    if (existing) {
+                        // אם החלון כבר פתוח, נעלה אותו לקדמת המסך
+                        return prev.map(w => w.id === fiberId ? { ...w, zIndex: newZ } : w);
+                    }
+
+                    // חישוב מיקום מדורג ראשוני
+                    const offset = (prev.length % 6) * 30;
+                    const newWin = {
+                        id: fiberId,
+                        x: Math.min(window.innerWidth - 650, Math.max(20, 80 + offset)),
+                        y: Math.min(window.innerHeight - 500, Math.max(20, 60 + offset)),
+                        zIndex: newZ,
+                        activeStation: "future_cops",
+                        showAddNote: false,
+                        editingNoteIndex: null,
+                        editNoteText: ""
+                    };
+                    return [...prev, newWin];
+                });
             };
 
-            // סגירת לשונית דוח ספציפית
-            const handleCloseFiberTab = (fiberIdToClose, e) => {
-                if (e) e.stopPropagation();
-                const remaining = openFiberIds.filter(id => id !== fiberIdToClose);
-                setOpenFiberIds(remaining);
-                if (selectedFiberId === fiberIdToClose) {
-                    setSelectedFiberId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
-                }
+            // סגירת חלון צף
+            const handleCloseWindow = (fiberId) => {
+                setOpenWindows(prev => prev.filter(w => w.id !== fiberId));
             };
 
-            // סגירת כל הדוחות הפתוחים
-            const handleCloseAllFibers = () => {
-                setOpenFiberIds([]);
-                setSelectedFiberId(null);
+            // העלאת חלון לקדמת המסך בלחיצה עליו
+            const handleBringToFront = (fiberId) => {
+                const newZ = maxZIndex + 1;
+                setMaxZIndex(newZ);
+                setOpenWindows(prev => prev.map(w => w.id === fiberId ? { ...w, zIndex: newZ } : w));
+            };
+
+            // עדכון תחנה פעילה בתוך חלון צף
+            const handleWindowStationChange = (fiberId, stationId) => {
+                setOpenWindows(prev => prev.map(w => w.id === fiberId ? { 
+                    ...w, 
+                    activeStation: stationId,
+                    showAddNote: false,
+                    editingNoteIndex: null,
+                    editNoteText: ""
+                } : w));
+            };
+
+            // גרירת חלון צף
+            const handleStartDragWindow = (e, fiberId) => {
+                // רק אם בלחיצה על כותרת החלון (לא על כפתורים)
+                if (e.target.closest('button')) return;
+                
+                handleBringToFront(fiberId);
+                const winObj = openWindows.find(w => w.id === fiberId);
+                if (!winObj) return;
+
+                const startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+                const startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+                const initialWinX = winObj.x;
+                const initialWinY = winObj.y;
+
+                const onMove = (moveEvent) => {
+                    const currentX = moveEvent.clientX || (moveEvent.touches && moveEvent.touches[0].clientX) || 0;
+                    const currentY = moveEvent.clientY || (moveEvent.touches && moveEvent.touches[0].clientY) || 0;
+                    const deltaX = currentX - startX;
+                    const deltaY = currentY - startY;
+
+                    setOpenWindows(prev => prev.map(w => w.id === fiberId ? {
+                        ...w,
+                        x: Math.max(0, initialWinX + deltaX),
+                        y: Math.max(0, initialWinY + deltaY)
+                    } : w));
+                };
+
+                const onEnd = () => {
+                    window.removeEventListener('mousemove', onMove);
+                    window.removeEventListener('mouseup', onEnd);
+                    window.removeEventListener('touchmove', onMove);
+                    window.removeEventListener('touchend', onEnd);
+                };
+
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onEnd);
+                window.addEventListener('touchmove', onMove);
+                window.addEventListener('touchend', onEnd);
             };
 
             useEffect(() => {
-                // Pre-fill operator name from storage for ease of use
                 const savedOperator = localStorage.getItem('last_operator');
                 if (savedOperator) setTempOperatorName(savedOperator);
-            }, [selectedFiberId]);
+            }, [openWindows]);
 
             // Sync presentation mode with native Esc button exits
             useEffect(() => {
@@ -223,13 +287,6 @@
                 window.addEventListener("keydown", handleKeyDown);
                 return () => window.removeEventListener("keydown", handleKeyDown);
             }, [isPresentation]);
-
-            // Reset collapsible notes form state on active station or selected fiber swap
-            useEffect(() => {
-                setShowAddNote(false);
-                setEditingNoteIndex(null);
-                setEditNoteText("");
-            }, [selectedFiberId, modalActiveStation]);
 
             useEffect(() => {
                 if (!isFirebaseConfigured) {
@@ -369,25 +426,23 @@
                 updateDatabase(updatedFibers);
             };
 
-            const handleAddStationNoteEntry = (fiberId, stationId) => {
-                if (!tempModalNoteText.trim()) return;
+            const handleAddStationNoteEntry = (fiberId, stationId, noteText) => {
+                if (!noteText || !noteText.trim()) return;
                 const fiber = fibers[fiberId];
                 if (!fiber) return;
 
-                // Load existing logs (handling legacy strings gracefully)
                 let existingNotes = [];
                 const rawData = fiber.stationData ? fiber.stationData[stationId] : null;
                 if (Array.isArray(rawData)) {
                     existingNotes = rawData;
                 } else if (typeof rawData === 'string' && rawData.trim() !== '') {
-                    // Legacy string fallback
                     existingNotes = [{ operator: "הערה כללית", timestamp: fiber.timestamp, text: rawData }];
                 }
 
                 const newEntry = {
                     operator: tempOperatorName.trim() || "מפעיל כללי",
                     timestamp: Date.now(),
-                    text: tempModalNoteText.trim()
+                    text: noteText.trim()
                 };
 
                 const updatedFibers = {
@@ -402,12 +457,12 @@
                 };
 
                 updateDatabase(updatedFibers);
-                setTempModalNoteText("");
+                setTempModalNoteText(prev => ({ ...prev, [fiberId]: "" }));
                 localStorage.setItem('last_operator', tempOperatorName.trim());
             };
 
-            const handleSaveEditedNote = (fiberId, stationId, noteIndex) => {
-                if (!editNoteText.trim()) return;
+            const handleSaveEditedNote = (fiberId, stationId, noteIndex, editNoteText) => {
+                if (!editNoteText || !editNoteText.trim()) return;
                 const fiber = fibers[fiberId];
                 if (!fiber) return;
 
@@ -435,8 +490,6 @@
                 };
 
                 updateDatabase(updatedFibers);
-                setEditingNoteIndex(null);
-                setEditNoteText("");
             };
 
             const handleToggleSaveToHistory = (fiberId) => {
@@ -468,7 +521,7 @@
                     delete updatedFibers[fiberId];
                 }
                 updateDatabase(updatedFibers);
-                handleCloseFiberTab(fiberId);
+                handleCloseWindow(fiberId);
             };
 
             const handleMovePriority = (fiberId, direction) => {
@@ -594,7 +647,7 @@
 
             const handleResetToHome = () => {
                 setActiveTab("board");
-                handleCloseAllFibers();
+                setOpenWindows([]);
             };
 
             // Exclude archived and M&O from active tracking counts
@@ -604,7 +657,6 @@
             const historyFibers = Object.values(fibers).filter(f => f.saveToHistory);
             
             const monitoredFibersCount = activeFibers.filter(f => f.stationId !== "M&O").length;
-            const selectedFiber = fibers[selectedFiberId];
 
             // Filtered and Sorted list for the Archive / History tab
             const processedHistoryFibers = historyFibers
@@ -625,7 +677,7 @@
                 });
 
             return (
-                <div class="h-full flex flex-col overflow-hidden">
+                <div class="h-full flex flex-col overflow-hidden relative">
                     
                     {/* Offline demo warning banner */}
                     {!isLive && (
@@ -841,9 +893,9 @@
                                                                 onDragStart={(e) => handleDragStart(e, fiber.id)}
                                                                 onDragOver={handleDragOver}
                                                                 onDrop={(e) => handleDropOnCard(e, fiber.id, station.id)}
-                                                                onDoubleClick={() => handleOpenFiber(fiber.id)}
+                                                                onDoubleClick={() => handleOpenFiberWindow(fiber.id)}
                                                                 class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm card-hover relative group cursor-grab active:cursor-grabbing select-none"
-                                                                title="לחץ פעמיים לפתיחת תיק גלם"
+                                                                title="לחץ פעמיים לפתיחת דוח גלם בחלון צף"
                                                             >
                                                                 <div class="flex items-start justify-between gap-1.5 mb-1.5">
                                                                     <div class="flex items-start gap-1.5 min-w-0 mt-0.5">
@@ -873,11 +925,11 @@
                                                                                 </button>
                                                                             </div>
 
-                                                                            {/* Info clicker for mobile / tablet details modal */}
+                                                                            {/* Info clicker for details modal window */}
                                                                             <button 
-                                                                                onClick={() => handleOpenFiber(fiber.id)}
+                                                                                onClick={() => handleOpenFiberWindow(fiber.id)}
                                                                                 class="p-1 text-slate-400 hover:text-blue-600 rounded bg-slate-100/50 hover:bg-slate-100 flex items-center justify-center"
-                                                                                title="צפה בתיק הגלם"
+                                                                                title="פתח דוח גלם בחלון צף"
                                                                             >
                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg>
                                                                             </button>
@@ -1029,7 +1081,7 @@
                                                             
                                                             <div class="flex items-center gap-2 shrink-0">
                                                                 <button 
-                                                                    onClick={() => handleOpenFiber(fiber.id)}
+                                                                    onClick={() => handleOpenFiberWindow(fiber.id)}
                                                                     class="p-1 bg-slate-100 border border-slate-200 rounded text-slate-600 flex items-center justify-center"
                                                                 >
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -1171,7 +1223,7 @@
                                                     <td class="p-4 text-xs text-slate-600 truncate max-w-xs">{fiber.comments || '-'}</td>
                                                     <td class="p-4 text-left">
                                                         <button 
-                                                            onClick={() => handleOpenFiber(fiber.id)}
+                                                            onClick={() => handleOpenFiberWindow(fiber.id)}
                                                             class="text-blue-600 hover:text-blue-800 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
                                                         >
                                                             צפה בתיק גלם
@@ -1191,186 +1243,180 @@
                         )}
                     </main>
 
-                    {/* FULL FIBER DIARY DETAILED TRAVELER MODAL WITH MULTI-TAB SUPPORT */}
-                    {openFiberIds.length > 0 && selectedFiber && (
-                        <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div class="bg-white w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                
-                                {/* Multi-Fiber Tab Header Strip */}
-                                <div class="bg-slate-950 text-white px-4 pt-3 flex items-center gap-2 overflow-x-auto custom-scrollbar border-b border-slate-800 shrink-0">
-                                    <span class="text-[10px] font-bold text-slate-400 pl-2 shrink-0 select-none">דוחות פתוחים:</span>
-                                    {openFiberIds.map(id => {
-                                        const fItem = fibers[id];
-                                        if (!fItem) return null;
-                                        const isTabActive = id === selectedFiberId;
-                                        return (
-                                            <div 
-                                                key={id}
-                                                onClick={() => setSelectedFiberId(id)}
-                                                class={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-bold cursor-pointer transition select-none shrink-0 ${isTabActive ? 'bg-slate-900 text-blue-400 border-t-2 border-blue-500' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
-                                            >
-                                                <span class="truncate max-w-[130px]">{fItem.name}</span>
-                                                <button 
-                                                    onClick={(e) => handleCloseFiberTab(id, e)}
-                                                    class="hover:text-red-400 hover:bg-slate-700/50 p-0.5 rounded transition text-[10px] w-4 h-4 flex items-center justify-center"
-                                                    title="סגור דוח זה"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                    {/* RENDER MULTIPLE FLOATING & DRAGGABLE FIBER WINDOWS */}
+                    {openWindows.map(win => {
+                        const fiber = fibers[win.id];
+                        if (!fiber) return null;
 
-                                {/* Modal Header */}
-                                <div class="bg-slate-900 text-white p-5 flex items-center justify-between shrink-0">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                        return (
+                            <div 
+                                key={win.id}
+                                onMouseDown={() => handleBringToFront(win.id)}
+                                onTouchStart={() => handleBringToFront(win.id)}
+                                style={{
+                                    position: 'fixed',
+                                    left: `${win.x}px`,
+                                    top: `${win.y}px`,
+                                    zIndex: win.zIndex,
+                                }}
+                                class="w-[95vw] sm:w-[650px] md:w-[750px] h-[80vh] max-h-[650px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-300 transition-shadow"
+                            >
+                                {/* Draggable Window Header */}
+                                <div 
+                                    onMouseDown={(e) => handleStartDragWindow(e, win.id)}
+                                    onTouchStart={(e) => handleStartDragWindow(e, win.id)}
+                                    class="bg-slate-900 text-white p-3 sm:p-4 flex items-center justify-between shrink-0 cursor-move select-none"
+                                >
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white shrink-0">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                                         </div>
-                                        <div>
-                                            <h3 class="text-lg font-bold">{selectedFiber.name}</h3>
-                                            <p class="text-xs text-slate-400">
-                                                תאריך יצירה: {new Date(selectedFiber.timestamp).toLocaleString('he-IL')} 
-                                                {selectedFiber.archived && ' | במצב ארכיון (קריאה בלבד)'}
+                                        <div class="min-w-0">
+                                            <h3 class="text-sm font-bold truncate">{fiber.name}</h3>
+                                            <p class="text-[10px] text-slate-400 truncate">
+                                                תאריך יצירה: {new Date(fiber.timestamp).toLocaleDateString('he-IL')} 
+                                                {fiber.archived && ' | ארכיון'}
                                             </p>
                                         </div>
                                     </div>
-                                    <button 
-                                        onClick={handleCloseAllFibers}
-                                        class="text-slate-400 hover:text-white p-1 rounded-lg transition flex items-center justify-center"
-                                        title="סגור את כל הדוחות"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                    </button>
+                                    <div class="flex items-center gap-1 shrink-0">
+                                        <button 
+                                            onClick={() => handleCloseWindow(win.id)}
+                                            class="text-slate-400 hover:text-white p-1 rounded-lg transition hover:bg-slate-800 flex items-center justify-center"
+                                            title="סגור חלון"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                        </button>
+                                    </div>
                                 </div>
 
-                                {/* Modal Body Container */}
+                                {/* Floating Window Body */}
                                 <div class="flex-1 flex overflow-hidden">
-                                    
                                     {/* Sidebar: Navigation of Stations */}
-                                    <div class="w-1/3 border-l border-slate-200 bg-slate-50 overflow-y-auto custom-scrollbar p-3 space-y-2 shrink-0">
-                                        <div class="text-[10px] font-bold text-slate-400 px-2 pb-1 uppercase tracking-wider font-sans">הערות עפ"י תחנות</div>
+                                    <div class="w-1/3 border-l border-slate-200 bg-slate-50 overflow-y-auto custom-scrollbar p-2 space-y-1.5 shrink-0">
+                                        <div class="text-[9px] font-bold text-slate-400 px-1.5 pb-1 uppercase tracking-wider font-sans">תחנות</div>
                                         {STATIONS.map((station) => {
-                                            const rawData = selectedFiber.stationData && selectedFiber.stationData[station.id];
+                                            const rawData = fiber.stationData && fiber.stationData[station.id];
                                             const hasData = Array.isArray(rawData) ? rawData.length > 0 : (typeof rawData === 'string' && rawData.trim() !== '');
-                                            const isActive = modalActiveStation === station.id;
+                                            const isActive = win.activeStation === station.id;
                                             return (
                                                 <button
                                                     key={station.id}
-                                                    onClick={() => setModalActiveStation(station.id)}
-                                                    class={`w-full text-right p-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition ${isActive ? 'bg-white border-blue-500 text-blue-600 shadow-sm' : 'bg-transparent border-transparent text-slate-600 hover:bg-slate-100'}`}
+                                                    onClick={() => handleWindowStationChange(win.id, station.id)}
+                                                    class={`w-full text-right p-2 rounded-lg border text-xs font-semibold flex items-center justify-between transition ${isActive ? 'bg-white border-blue-500 text-blue-600 shadow-sm' : 'bg-transparent border-transparent text-slate-600 hover:bg-slate-100'}`}
                                                 >
-                                                    <span class="flex items-center gap-2">
-                                                        <span class={`w-2.5 h-2.5 rounded-full ${station.color}`}></span>
-                                                        <span>{station.name}</span>
+                                                    <span class="flex items-center gap-1.5 truncate">
+                                                        <span class={`w-2 h-2 rounded-full ${station.color} shrink-0`}></span>
+                                                        <span class="truncate">{station.name}</span>
                                                     </span>
                                                     {hasData && (
-                                                        <span class="text-green-600 bg-green-50 text-[10px] px-1.5 py-0.5 rounded-md font-bold">מולא</span>
+                                                        <span class="text-green-600 bg-green-50 text-[9px] px-1 py-0.2 rounded font-bold shrink-0">V</span>
                                                     )}
                                                 </button>
                                             );
                                         })}
                                     </div>
 
-                                    {/* Center Pane: Active Station Details & Audit Log Journey Timeline */}
-                                    <div class="flex-1 flex flex-col overflow-hidden p-6">
-                                        
-                                        {/* Station Data Input Panel */}
-                                        <div class="flex-1 flex flex-col overflow-hidden pb-6">
-                                            <div class="flex items-center gap-2 mb-3">
-                                                <span class={`w-3 h-3 rounded-full ${STATIONS.find(s => s.id === modalActiveStation)?.color}`}></span>
-                                                <h4 class="font-bold text-slate-800">
-                                                    נתונים לתחנת {STATIONS.find(s => s.id === modalActiveStation)?.name}
+                                    {/* Content Pane */}
+                                    <div class="flex-1 flex flex-col overflow-hidden p-4">
+                                        <div class="flex-1 flex flex-col overflow-hidden pb-3">
+                                            <div class="flex items-center gap-2 mb-2">
+                                                <span class={`w-2.5 h-2.5 rounded-full ${STATIONS.find(s => s.id === win.activeStation)?.color}`}></span>
+                                                <h4 class="font-bold text-xs text-slate-800">
+                                                    תחנה: {STATIONS.find(s => s.id === win.activeStation)?.name}
                                                 </h4>
                                             </div>
 
                                             {/* Note timeline for current station */}
-                                            <div class="flex-1 overflow-y-auto mb-4 border border-slate-100 p-3 rounded-xl bg-slate-50/50 custom-scrollbar space-y-3">
+                                            <div class="flex-1 overflow-y-auto mb-3 border border-slate-100 p-2.5 rounded-xl bg-slate-50/50 custom-scrollbar space-y-2">
                                                 {(() => {
-                                                    const rawData = selectedFiber.stationData ? selectedFiber.stationData[modalActiveStation] : null;
+                                                    const rawData = fiber.stationData ? fiber.stationData[win.activeStation] : null;
                                                     let entries = [];
                                                     if (Array.isArray(rawData)) {
                                                         entries = rawData;
                                                     } else if (typeof rawData === 'string' && rawData.trim() !== '') {
-                                                        // Legacy string fallback
-                                                        entries = [{ operator: "הערה כללית", timestamp: selectedFiber.timestamp, text: rawData }];
+                                                        entries = [{ operator: "הערה כללית", timestamp: fiber.timestamp, text: rawData }];
                                                     }
 
                                                     if (entries.length === 0) {
-                                                        return <p class="text-xs text-slate-400 italic text-center py-8">אין עדיין הערות עבור תחנה זו</p>;
+                                                        return <p class="text-[11px] text-slate-400 italic text-center py-6">אין עדיין הערות לתחנה זו</p>;
                                                     }
 
                                                     return entries.map((entry, idx) => (
-                                                        <div key={idx} class="bg-white border border-slate-150 p-3 rounded-xl shadow-xs">
-                                                            <div class="flex items-center justify-between text-[10px] text-slate-400 font-semibold mb-1.5 border-b border-slate-100 pb-1">
-                                                                <span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">מפעיל: {entry.operator}</span>
-                                                                <div class="flex items-center gap-2">
+                                                        <div key={idx} class="bg-white border border-slate-150 p-2 rounded-lg shadow-xs">
+                                                            <div class="flex items-center justify-between text-[9px] text-slate-400 font-semibold mb-1 border-b border-slate-100 pb-0.5">
+                                                                <span class="text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded">מפעיל: {entry.operator}</span>
+                                                                <div class="flex items-center gap-1.5">
                                                                     <span>{new Date(entry.timestamp).toLocaleString('he-IL')}</span>
-                                                                    {editingNoteIndex !== idx && !selectedFiber.archived && (
+                                                                    {win.editingNoteIndex !== idx && !fiber.archived && (
                                                                         <button 
                                                                             onClick={() => {
-                                                                                setEditingNoteIndex(idx);
-                                                                                setEditNoteText(entry.text);
+                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: idx, editNoteText: entry.text } : w));
                                                                             }}
-                                                                            class="text-slate-400 hover:text-blue-600 transition p-0.5 rounded hover:bg-slate-50 flex items-center justify-center"
+                                                                            class="text-slate-400 hover:text-blue-600 transition p-0.5 rounded flex items-center justify-center"
                                                                             title="ערוך הערה"
                                                                         >
-                                                                            {/* SVG עיפרון יציב לחלוטין */}
-                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                                                         </button>
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            {editingNoteIndex === idx ? (
-                                                                <div class="space-y-2 mt-1">
+                                                            {win.editingNoteIndex === idx ? (
+                                                                <div class="space-y-1.5 mt-1">
                                                                     <textarea 
                                                                         dir="auto"
-                                                                        value={editNoteText}
-                                                                        onChange={(e) => setEditNoteText(e.target.value)}
-                                                                        class="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                                                                        rows={3}
+                                                                        value={win.editNoteText}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value;
+                                                                            setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editNoteText: val } : w));
+                                                                        }}
+                                                                        class="w-full border border-slate-200 rounded p-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                                                        rows={2}
                                                                     />
-                                                                    <div class="flex justify-end gap-1.5">
+                                                                    <div class="flex justify-end gap-1">
                                                                         <button 
                                                                             onClick={() => {
-                                                                                setEditingNoteIndex(null);
-                                                                                setEditNoteText("");
+                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: null, editNoteText: "" } : w));
                                                                             }} 
-                                                                            class="px-2.5 py-1 text-[10px] bg-slate-150 text-slate-700 rounded font-semibold transition hover:bg-slate-200"
+                                                                            class="px-2 py-0.5 text-[9px] bg-slate-150 text-slate-700 rounded font-semibold"
                                                                         >
                                                                             ביטול
                                                                         </button>
                                                                         <button 
-                                                                            onClick={() => handleSaveEditedNote(selectedFiber.id, modalActiveStation, idx)} 
-                                                                            class="px-2.5 py-1 text-[10px] bg-blue-600 text-white rounded font-semibold transition hover:bg-blue-700"
+                                                                            onClick={() => {
+                                                                                handleSaveEditedNote(fiber.id, win.activeStation, idx, win.editNoteText);
+                                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, editingNoteIndex: null, editNoteText: "" } : w));
+                                                                            }} 
+                                                                            class="px-2 py-0.5 text-[9px] bg-blue-600 text-white rounded font-semibold hover:bg-blue-700"
                                                                         >
-                                                                            שמור שינויים
+                                                                            שמור
                                                                         </button>
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                <p class="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed break-words" dir="auto">{entry.text}</p>
+                                                                <p class="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed break-words" dir="auto">{entry.text}</p>
                                                             )}
                                                         </div>
                                                     ));
                                                 })()}
                                             </div>
 
-                                            {/* Add Signed entry box (Collapsible under 'showAddNote' state) */}
-                                            {!selectedFiber.archived && (
+                                            {/* Add Signed entry box */}
+                                            {!fiber.archived && (
                                                 <div class="shrink-0">
-                                                    {!showAddNote ? (
+                                                    {!win.showAddNote ? (
                                                         <button 
                                                             type="button"
-                                                            onClick={() => setShowAddNote(true)}
-                                                            class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 hover:text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition"
+                                                            onClick={() => {
+                                                                setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, showAddNote: true } : w));
+                                                            }}
+                                                            class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 hover:text-slate-800 font-bold text-[11px] rounded-lg flex items-center justify-center gap-1.5 transition"
                                                         >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-blue-600"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3 text-blue-600"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                                                             <span>הוסף הערה לתחנה זו</span>
                                                         </button>
                                                     ) : (
-                                                        <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3">
+                                                        <div class="bg-slate-50 border border-slate-200 p-2 rounded-lg space-y-2">
                                                             <div class="flex gap-2">
                                                                 <input 
                                                                     type="text"
@@ -1378,34 +1424,39 @@
                                                                     placeholder="שם מפעיל..."
                                                                     value={tempOperatorName}
                                                                     onChange={(e) => setTempOperatorName(e.target.value)}
-                                                                    class="w-1/3 px-2 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none font-bold"
+                                                                    class="w-1/3 px-2 py-1 text-[11px] bg-white border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-none font-bold"
                                                                 />
-                                                                <span class="text-xs text-slate-400 self-center font-semibold">
+                                                                <span class="text-[10px] text-slate-400 self-center font-semibold">
                                                                     תאריך: {new Date().toLocaleDateString('he-IL')} (היום)
                                                                 </span>
                                                             </div>
                                                             <textarea 
                                                                 dir="auto"
-                                                                placeholder="הקלד נתונים, הערה או תוצאות מדידה לתחנה זו..."
-                                                                value={tempModalNoteText}
-                                                                onChange={(e) => setTempModalNoteText(e.target.value)}
-                                                                class="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none h-16"
+                                                                placeholder="הקלד נתונים, הערה או תוצאות מדידה..."
+                                                                value={tempModalNoteText[fiber.id] || ""}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    setTempModalNoteText(prev => ({ ...prev, [fiber.id]: val }));
+                                                                }}
+                                                                class="w-full border border-slate-200 rounded p-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none h-14"
                                                             />
-                                                            <div class="flex justify-end gap-2">
+                                                            <div class="flex justify-end gap-1.5">
                                                                 <button 
                                                                     type="button"
-                                                                    onClick={() => setShowAddNote(false)}
-                                                                    class="text-slate-500 hover:text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition"
+                                                                    onClick={() => {
+                                                                        setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, showAddNote: false } : w));
+                                                                    }}
+                                                                    class="text-slate-500 hover:text-slate-700 text-[10px] font-semibold px-2 py-1 rounded border border-slate-200 hover:bg-slate-100 transition"
                                                                 >
                                                                     ביטול
                                                                 </button>
                                                                 <button 
                                                                     type="button"
                                                                     onClick={() => {
-                                                                        handleAddStationNoteEntry(selectedFiber.id, modalActiveStation);
-                                                                        setShowAddNote(false);
+                                                                        handleAddStationNoteEntry(fiber.id, win.activeStation, tempModalNoteText[fiber.id]);
+                                                                        setOpenWindows(prev => prev.map(w => w.id === win.id ? { ...w, showAddNote: false } : w));
                                                                     }}
-                                                                    class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition"
+                                                                    class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-xs transition"
                                                                 >
                                                                     הוסף
                                                                 </button>
@@ -1417,24 +1468,24 @@
                                         </div>
 
                                         {/* Journey Audit Log Timeline Footer */}
-                                        <div class="h-1/4 border-t border-slate-100 pt-4 flex flex-col overflow-hidden shrink-0">
-                                            <h5 class="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                                יומן מסע של הגלם (לוג תנועות אוטומטי):
+                                        <div class="h-1/4 border-t border-slate-100 pt-2 flex flex-col overflow-hidden shrink-0">
+                                            <h5 class="text-[10px] font-bold text-slate-500 mb-1 flex items-center gap-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                                יומן מסע:
                                             </h5>
-                                            <div class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-xs">
-                                                {selectedFiber.historyLog && selectedFiber.historyLog.map((log, idx) => (
-                                                    <div key={idx} class="flex items-start gap-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                                        <span class="text-slate-400 font-mono text-[10px] shrink-0 pt-0.5">
+                                            <div class="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar text-[10px]">
+                                                {fiber.historyLog && fiber.historyLog.map((log, idx) => (
+                                                    <div key={idx} class="flex items-start gap-2 bg-slate-50 p-1.5 rounded border border-slate-100">
+                                                        <span class="text-slate-400 font-mono text-[9px] shrink-0 pt-0.5">
                                                             {new Date(log.timestamp).toLocaleString('he-IL')}
                                                         </span>
-                                                        <div class="font-medium text-slate-700">
+                                                        <div class="font-medium text-slate-700 truncate">
                                                             {log.note || 'הועבר תחנה'}
                                                         </div>
                                                     </div>
                                                 ))}
-                                                {(!selectedFiber.historyLog || selectedFiber.historyLog.length === 0) && (
-                                                    <div class="text-slate-400 text-xs italic">לא תועדו תנועות עבור גלם זה</div>
+                                                {(!fiber.historyLog || fiber.historyLog.length === 0) && (
+                                                    <div class="text-slate-400 italic">לא תועדו תנועות עבור גלם זה</div>
                                                 )}
                                             </div>
                                         </div>
@@ -1444,24 +1495,24 @@
                                 </div>
 
                                 {/* Modal Actions Footer */}
-                                <div class="bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-between items-center shrink-0">
+                                <div class="bg-slate-50 border-t border-slate-200 px-4 py-2.5 flex justify-between items-center shrink-0">
                                     <button 
-                                        onClick={() => handleDeleteOrArchiveFiber(selectedFiber.id)}
-                                        class="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-4 py-2 rounded-lg transition"
+                                        onClick={() => handleDeleteOrArchiveFiber(fiber.id)}
+                                        class="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-[10px] px-3 py-1.5 rounded transition"
                                     >
-                                        {selectedFiber.archived ? 'מחק לצמיתות מהארכיון' : (selectedFiber.saveToHistory !== false ? 'ארכב והעבר להיסטוריה' : 'מחק גלם לחלוטין')}
+                                        {fiber.archived ? 'מחק לצמיתות' : (fiber.saveToHistory !== false ? 'ארכב והעבר להיסטוריה' : 'מחק גלם לחלוטין')}
                                     </button>
                                     <button 
-                                        onClick={() => handleCloseFiberTab(selectedFiber.id)}
-                                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2 rounded-lg transition"
+                                        onClick={() => handleCloseWindow(win.id)}
+                                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] px-4 py-1.5 rounded transition"
                                     >
-                                        סגור דוח גלם זה
+                                        סגור דוח
                                     </button>
                                 </div>
 
                             </div>
-                        </div>
-                    )}
+                        );
+                    })}
 
                 </div>
             );
